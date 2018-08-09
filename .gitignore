@@ -1,0 +1,26 @@
+################################################################################
+# Xilinx Vivado .gitignore file
+# 
+# Ryan Clarke
+# kj6msg@icloud.com
+################################################################################
+
+# Ignore project files
+*.xpr
+*.wcfg
+
+# Vivado generated folders
+*.cache/
+*.hw/
+ip/
+*.ip_user_files/
+*.runs/
+*.sim/
+*.srcs/
+
+# cc65 Assembler generated files
+*.lst
+*.o
+*.map
+*.rom
+*.txt

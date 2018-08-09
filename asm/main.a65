@@ -1,0 +1,67 @@
+;===============================================================================
+;Copyright (C) 2018 Ryan Clarke
+;
+;This program is free software (firmware): you can redistribute it and/or modify
+;it under the terms of the GNU General Public License as published by
+;the Free Software Foundation, either version 3 of the License, or
+;(at your option) any later version.
+;
+;This program is distributed in the hope that it will be useful,
+;but WITHOUT ANY WARRANTY; without even the implied warranty of
+;MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;GNU General Public License for more details.
+;
+;You should have received a copy of the GNU General Public License
+;along with this program.  If not, see <http://www.gnu.org/licenses/>.
+;===============================================================================
+
+
+;===============================================================================
+; Program   : BIOS
+; File Name : main.a65
+; Project   : v65C02 8-bit Computer
+; Author    : Ryan Clarke
+; E-mail    : kj6msg@icloud.com
+;===============================================================================
+; Release History :
+;
+;    Version     | Date          | Description
+;    -------------------------------------------------
+;    0.0         | 07/26/2018    | Initial development
+;===============================================================================
+; Purpose : Main program for the 65C02 BIOS.
+;===============================================================================
+
+
+.PC02
+
+.INCLUDE    "memory.inc"
+.INCLUDE    "vga.inc"
+.INCLUDE    "conio.inc"
+
+.EXPORT     main
+
+
+;= MAIN PROGRAM ================================================================
+
+.SEGMENT "bios"
+
+main:       jsr     vga_init            ; initialize the VGA
+            
+            lda     #.LOBYTE(hello)     ; A = string LSB
+            ldx     #.HIBYTE(hello)     ; X = string MSB
+            jsr     puts                ; print null terminated string
+            
+            lda     #13
+            sta     VGA_COL
+            lda     #0
+            sta     VGA_ROW             ; move cursor to (0,1)
+            
+            jsr     cursor_on           ; enable cursor
+            
+@done:      jmp     @done
+
+
+;= STRINGS =====================================================================
+
+hello:      .ASCIIZ "Hello, World!"

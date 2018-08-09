@@ -1,0 +1,80 @@
+;===============================================================================
+;Copyright (C) 2018 Ryan Clarke
+;
+;This program is free software (firmware): you can redistribute it and/or modify
+;it under the terms of the GNU General Public License as published by
+;the Free Software Foundation, either version 3 of the License, or
+;(at your option) any later version.
+;
+;This program is distributed in the hope that it will be useful,
+;but WITHOUT ANY WARRANTY; without even the implied warranty of
+;MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;GNU General Public License for more details.
+;
+;You should have received a copy of the GNU General Public License
+;along with this program.  If not, see <http://www.gnu.org/licenses/>.
+;===============================================================================
+
+
+;===============================================================================
+; Program   : BIOS
+; File Name : vga.a65
+; Project   : v65C02 8-bit Computer
+; Author    : Ryan Clarke
+; E-mail    : kj6msg@icloud.com
+;===============================================================================
+; Release History :
+;
+;    Version     | Date          | Description
+;    -------------------------------------------------
+;    0.0         | 08/07/2018    | Initial development
+;===============================================================================
+; Purpose : VGA routines for the v65C02 BIOS.
+;===============================================================================
+
+
+.PC02
+
+.INCLUDE    "memory.inc"
+.INCLUDE    "ascii.inc"
+.INCLUDE    "colors.inc"
+
+.EXPORT     vga_init
+
+
+;= CONSTANTS ===================================================================
+
+VRAM_END = .HIBYTE(VRAM) + $10          ; video RAM is 4KB
+ATTRIB   = (BLACK << 4) | LIGHT_GRAY    ; default attribute: light gray on black
+EN       = $01
+
+
+;= INITIALIZE VGA ==============================================================
+
+.SEGMENT "bios"
+
+vga_init:   stz     VGA_STATUS          ; STATUS EN = 0, CURS = 0
+            
+            lda     #.LOBYTE(VRAM)
+            sta     $00
+            lda     #.HIBYTE(VRAM)
+            sta     $01                 ; $0001:0000 = VRAM address
+            
+            ; clear VRAM with NUL character and default attribute
+@clrscr:    lda     #NUL                ; fill character
+            sta     ($00)               ; store character to VRAM
+            inc     $00                 ; increment VRAM address LSB
+            lda     #ATTRIB             ; default attribute
+            sta     ($00)               ; store attribute to VRAM
+            inc     $00                 ; increment VRAM address LSB
+            bne     @clrscr             ; rollover? no, then loop
+            
+            inc     $01                 ; increment VRAM address MSB
+            lda     $01                 ; load VRAM address MSB into A
+            cmp     #VRAM_END           ; MSB rollover?
+            bne     @clrscr             ; no, then loop
+            
+            lda     #EN
+            sta     VGA_STATUS          ; STATUS EN = 1, CURS = 0
+            
+            rts
