@@ -35,11 +35,11 @@
 
 .PC02
 
-ZP         = $0000
-STACK      = $0100
-RAM        = $0200
-VRAM       = $8000
-VGA_STATUS = $9000
-VGA_COL    = $9001
-VGA_ROW    = $9002
-BIOS       = $C000
+ZP           = $0000
+STACK        = $0100
+RAM          = $0200
+VRAM         = $8000
+VGA_STATUS   = $9000
+VGA_CURS_LSB = $9001
+VGA_CURS_MSB = $9002
+BIOS         = $C000

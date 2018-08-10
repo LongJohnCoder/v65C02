@@ -38,21 +38,21 @@ Purpose : Top module for the v65C02 8-bit Computer.
 
 module v65C02_Top
     (
-    input  wire       CLK100MHZ,    // 100 MHz Nexys 4 DDR clock
-    input  wire       CPU_RESETN,   // active-low asynchronous reset
+    input  wire       CLK100MHZ,        // 100 MHz Nexys 4 DDR clock
+    input  wire       CPU_RESETN,       // active-low asynchronous reset
     
-    output wire [3:0] VGA_R,        // red
-    output wire [3:0] VGA_G,        // green
-    output wire [3:0] VGA_B,        // blue
-    output wire       VGA_HS,       // horizontal sync
-    output wire       VGA_VS        // vertical sync
+    output wire [3:0] VGA_R,            // red
+    output wire [3:0] VGA_G,            // green
+    output wire [3:0] VGA_B,            // blue
+    output wire       VGA_HS,           // horizontal sync
+    output wire       VGA_VS            // vertical sync
     );
     
     
 /* CLOCK GENERATOR ************************************************************/
     
-    wire clk_pixel;
-    wire clk_cpu;
+    wire clk_pixel;                     // pixel clock
+    wire clk_cpu;                       // CPU clock
     
     clk_gen ClockGen
         (
@@ -64,9 +64,9 @@ module v65C02_Top
     
 /* CPU RESET BUTTON ***********************************************************/
     
-    reg  rst_async_ff;
+    reg  rst_async_ff;                  // reset synchronizer
     reg  rst_sync_ff;
-    wire rst_cpu;
+    wire rst_cpu;                       // v65C02 reset signal
     
     // reset synchronizer
     initial rst_async_ff = 1'b0;
@@ -84,12 +84,12 @@ module v65C02_Top
         );
     
     
-/* 65C02 CPU ******************************************************************/
+/* v65C02 CPU *****************************************************************/
     
-    wire [15:0] cpu_addr;
-    reg  [7:0]  cpu_din;
-    wire [7:0]  cpu_dout;
-    wire        cpu_we;
+    wire [15:0] cpu_addr;               // v65C02 16-bit address bus
+    reg  [7:0]  cpu_din;                // v65C02 8-bit data input
+    wire [7:0]  cpu_dout;               // v65C02 8-bit data output
+    wire        cpu_we;                 // v65C02 data write enable
     
     cpu_65c02 CPU
         (
@@ -107,10 +107,10 @@ module v65C02_Top
     
 /* RAM ************************************************************************/
     
-    localparam RAM_ADDR = 4'b0XXX;
+    localparam RAM_ADDR = 4'b0XXX;      // RAM = $0000 -> $7FFF
     
-    wire       ram_en;
-    wire [7:0] ram_dout;
+    wire       ram_en;                  // RAM enable
+    wire [7:0] ram_dout;                // RAM 8-bit data out
     
     assign ram_en  = ~cpu_addr[15];
     
@@ -127,10 +127,10 @@ module v65C02_Top
     
 /* ROM BIOS *******************************************************************/
     
-    localparam BIOS_ADDR = 4'b11XX;
+    localparam BIOS_ADDR = 4'b11XX;     // BIOS = $C000 -> $FFFF
     
-    wire       bios_en;
-    wire [7:0] bios_dout;
+    wire       bios_en;                 // BIOS enable
+    wire [7:0] bios_dout;               // BIOS 8-bit data out
     
     assign bios_en = & cpu_addr[15:14];
     
@@ -145,39 +145,35 @@ module v65C02_Top
     
 /* VGA CONTROLLER *************************************************************/
     
-    localparam VRAM_ADDR   = 4'b1000;
-    localparam VGA_CONTROL = 4'b1001;
+    localparam VRAM_ADDR   = 4'b1000;   // VRAM = $8000 -> $8FFF
+    localparam VGA_CONTROL = 4'b1001;   // VGA control bus = $9000 -> $9FFF
     
-    wire        vga_vram_en;
-    wire [7:0]  vga_vram_dout;
-    wire        vga_ctrl_en;
-    wire [7:0]  vga_ctrl_dout;
-    wire [11:0] vga_rgb;
-    wire        vga_hsync;
-    wire        vga_vsync;
+    wire        vga_ctrl_en;            // VGA control registers enable
+    wire        vga_vram_en;            // video RAM enable
+    wire [7:0]  vga_dout;               // 8-bit data output
+    wire [11:0] vga_rgb;                // RGB444 output
+    wire        vga_hsync;              // horizontal sync
+    wire        vga_vsync;              // vertical sync
     
-    assign vga_vram_en = (cpu_addr[15:12] == VRAM_ADDR);
-    assign vga_ctrl_en = (cpu_addr[15:12] == VGA_CONTROL);
+    assign vga_ctrl_en  = (cpu_addr[15:12] == VGA_CONTROL);
+    assign vga_vram_en  = (cpu_addr[15:12] == VRAM_ADDR);
     
     VGAController VGAController
         (
         .clk_cpu_i  (clk_cpu),
         .clk_pixel_i(clk_pixel),
-        .vram_en_i  (vga_vram_en),
-        .vram_we_i  (cpu_we),
-        .vram_addr_i(cpu_addr[11:0]),
-        .vram_din_i (cpu_dout),
-        .vram_dout_o(vga_vram_dout),
         .ctrl_en_i  (vga_ctrl_en),
-        .ctrl_we_i  (cpu_we),
-        .ctrl_addr_i(cpu_addr[1:0]),
-        .ctrl_din_i (cpu_dout),
-        .ctrl_dout_o(vga_ctrl_dout),
+        .vram_en_i  (vga_vram_en),
+        .we_i       (cpu_we),
+        .addr_i     (cpu_addr[11:0]),
+        .din_i      (cpu_dout),
+        .dout_o     (vga_dout),
         .rgb_o      (vga_rgb),
         .hsync_o    (vga_hsync),
         .vsync_o    (vga_vsync)
         );
     
+    // output logic
     assign {VGA_R, VGA_G, VGA_B} = vga_rgb;
     assign VGA_HS = vga_hsync;
     assign VGA_VS = vga_vsync;
@@ -185,20 +181,21 @@ module v65C02_Top
     
 /* MEMORY DECODING LOGIC ******************************************************/
     
-    localparam NOP = 8'hEA;
+    localparam NOP = 8'hEA;             // 65C02 NOP opcode
     
-    reg [3:0] cpu_addr_p1_4_reg;
+    reg [3:0] cpu_addr_p1_4_reg;        // v65C02 4-bit MSB pipeline
     
     initial cpu_addr_p1_4_reg = 4'h0;
     always @(posedge clk_cpu)
         cpu_addr_p1_4_reg <= #1 cpu_addr[15:12];
     
+    // v65C02 data input multiplexer
     always @*
         casex(cpu_addr_p1_4_reg)
             RAM_ADDR:    cpu_din = ram_dout;
-            VRAM_ADDR:   cpu_din = vga_vram_dout;
+            VRAM_ADDR:   cpu_din = vga_dout;
             BIOS_ADDR:   cpu_din = bios_dout;
-            VGA_CONTROL: cpu_din = vga_ctrl_dout;
+            VGA_CONTROL: cpu_din = vga_dout;
             default:     cpu_din = NOP;
         endcase
     

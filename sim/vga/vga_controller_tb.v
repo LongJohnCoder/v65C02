@@ -43,13 +43,11 @@ module VGAController_tb;
     
     reg        clk_cpu_i;
     reg        clk_pixel_i;
-    reg        en_i;
+    reg        ctrl_en_i;
+    reg        vram_en_i;
     reg        we_i;
     reg [11:0] addr_i;
     reg [7:0]  din_i;
-    reg [1:0]  status_i;
-    reg [6:0]  col_i;
-    reg [4:0]  row_i;
     
     
 /* OUTPUTS  *******************************************************************/
@@ -66,14 +64,12 @@ module VGAController_tb;
         (
         .clk_cpu_i  (clk_cpu_i),
         .clk_pixel_i(clk_pixel_i),
-        .en_i       (en_i),
+        .ctrl_en_i  (ctrl_en_i),
+        .vram_en_i  (vram_en_i),
         .we_i       (we_i),
         .addr_i     (addr_i),
         .din_i      (din_i),
         .dout_o     (dout_o),
-        .status_i   (status_i),
-        .col_i      (col_i),
-        .row_i      (row_i),
         .rgb_o      (rgb_o),
         .hsync_o    (hsync_o),
         .vsync_o    (vsync_o)
@@ -108,19 +104,76 @@ module VGAController_tb;
 /* MAIN ***********************************************************************/
     
     initial begin
-        en_i     =  1'b0;
-        we_i     =  1'b0;
-        addr_i   = 12'h000;
-        din_i    =  8'h00;
-        status_i =  2'd0;
-        col_i    =  7'd0;
-        row_i    =  5'd0;
+        ctrl_en_i =  1'b0;
+        vram_en_i =  1'b0;
+        we_i      =  1'b0;
+        addr_i    = 12'h000;
+        din_i     =  8'd0;
         
-        #1 status_i = 2'b11;
+        // write NUL character to VRAM address 0x000
+        #1;
+        vram_en_i =  1'b1;
+        we_i      =  1'b1;
+        addr_i    = 12'h000;
+        din_i     =  8'h00;
         @(posedge clk_cpu_i);
         
-        // run for 33 frames
-        #(33 * T_clk_pixel * 900 * 449);
+        // write light gray on black attribute to VRAM address 0x001
+        #1;
+        addr_i = 12'h001;
+        din_i  =  8'h07;
+        @(posedge clk_cpu_i);
+        
+        // move cursor to (1,1)
+        #1;
+        vram_en_i =  1'b0;
+        ctrl_en_i =  1'b1;
+        addr_i    = 12'h001;
+        din_i     =  8'h51;
+        @(posedge clk_cpu_i);
+        
+        #1;
+        addr_i = 12'h002;
+        din_i  =  8'h00;
+        @(posedge clk_cpu_i);
+        
+        // enable VGA output and cursor
+        #1;
+        addr_i    = 12'h000;
+        din_i     = 8'h03;
+        @(posedge clk_cpu_i);
+        
+        // read video RAM address 0x001
+        #1;
+        ctrl_en_i =  1'b0;
+        we_i      =  1'b0;
+        vram_en_i =  1'b1;
+        addr_i    = 12'h001;
+        @(posedge clk_cpu_i);
+        
+        // read STATUS register
+        #1;
+        vram_en_i = 1'b0;
+        ctrl_en_i = 1'b1;
+        addr_i    = 12'h000;
+        @(posedge clk_cpu_i);
+        
+        // read cursor address
+        #1;
+        addr_i = 12'h001;
+        @(posedge clk_cpu_i);
+        
+        #1;
+        addr_i = 12'h002;
+        @(posedge clk_cpu_i);
+        
+        // deselect VGA
+        #1;
+        ctrl_en_i = 1'b0;
+        @(posedge clk_cpu_i);
+        
+        // run for 33 frames to observe cursor
+        //I#(33 * T_clk_pixel * 900 * 449);
         
         // done
         @(posedge clk_cpu_i) $stop;

@@ -36,11 +36,12 @@ Release History :
     0.2         | 07/09/2018    | Video RAM moved inside VGA controller
     0.3         | 08/05/2018    | Initial register values added
     0.4         | 08/07/2018    | Moved control registers inside module
+    0.5         | 08/09/2018    | Changed cursor position to a VRAM address
 ================================================================================
-Purpose : 65C02 compatible VGA text-mode controller for the Nexys 4 DDR FPGA
-          development board implementing a CRT controller, 4KB video RAM, 
-          character generator, 4KB character ROM, attribute decoder, and
-          synchronizer.
+Purpose : VGA text-mode controller for the v65C02 8-bit Computer on the 
+          Nexys 4 DDR FPGA development board. Implements a CRT controller, 4KB
+          video RAM, character generator, 4KB character ROM, attribute decoder,
+          and synchronizer.
           
           The CRT controller generates the character column and scan line,
           horizontal and vertical sync signals, cursor, and active video flag.
@@ -65,8 +66,9 @@ Purpose : 65C02 compatible VGA text-mode controller for the Nexys 4 DDR FPGA
           IBM Code Page 437 using an 8x16 glyph.
           
           The attribute decoder translates each foreground and background value
-          into the appropriate 12-bit RGB444 value. Attributes are stored in RAM
-          in two 4-bit nibbles, representing a coded RGB444 value.
+          into the appropriate IBM VGA equivalent 12-bit RGB444 value.
+          Attributes are stored in RAM in two 4-bit nibbles, representing a
+          coded RGB444 value.
           
              Background  |  Foreground
           -------------------------------
@@ -76,8 +78,21 @@ Purpose : 65C02 compatible VGA text-mode controller for the Nexys 4 DDR FPGA
           -------------------------------
           
           The synchronizer matches timing between the horizontal sync, vertical
-          sync, RGB444, and character generator. Total delay from start to valid
-          output is six pixel-clock cycles.          
+          sync, RGB444, and character generator.
+          
+          The VGA controller has three control registers: STATUS, CURS_LSB, and
+          CURS_MSB. STATUS controls the VGA controller, and CURS_LSB and
+          CURS_MSB form the 12-bit address for the cursor. STATUS contains two
+          bits: EN which enables the display, and CURS which enables the cursor.
+          
+                   ------------------------------------------
+                     7 |  6 |  5 |  4 |  3 |  2  |   1  |  0
+                   ------------------------------------------
+          STATUS     X |  X |  X |  X |  X |  X  | CURS | EN
+          CURS_LSB  A7 | A6 | A5 | A4 | A3 |  A2 |  A1  | A0
+          CURS_MSB   X |  X |  X |  X |  X | A10 |  A9  | A8
+          
+          Total delay from start to valid output is six pixel-clock cycles.          
 *******************************************************************************/
 
 
@@ -86,19 +101,13 @@ module VGAController
     input wire         clk_cpu_i,   // CPU clock
     input wire         clk_pixel_i, // pixel clock
     
-    // video RAM bus
-    input wire         vram_en_i,   // RAM enable
-    input wire         vram_we_i,   // write enable
-    input wire  [11:0] vram_addr_i, // address
-    input wire  [7:0]  vram_din_i,  // data input
-    output wire [7:0]  vram_dout_o, // data ouput
-    
-    // registers
-    input wire         ctrl_en_i,   // control registers enable
-    input wire         ctrl_we_i,   // control registers write enable
-    input wire  [1:0]  ctrl_addr_i, // control register address
-    input wire  [7:0]  ctrl_din_i,  // control register data input
-    output wire [7:0]  ctrl_dout_o, // control register data output
+    // VGA bus
+    input wire         ctrl_en_i,   // control register enable
+    input wire         vram_en_i,   // video RAM enable
+    input wire         we_i,        // write enable
+    input wire  [11:0] addr_i,      // 12-bit address
+    input wire  [7:0]  din_i,       // 8-bit data input
+    output reg  [7:0]  dout_o,      // 8-bit data ouput
     
     // outputs
     output wire [11:0] rgb_o,       // RGB444 output
@@ -109,37 +118,37 @@ module VGAController
     
 /* CONTROL REGISTERS **********************************************************/
     
-    reg [1:0] status_reg;           // bit 1 = cursor, bit 0 = output
-    reg [6:0] col_reg;              // cursor column
-    reg [4:0] row_reg;              // cursor row
-    reg [7:0] ctrl_dout_reg;        // multiplexed output
+    reg  [1:0]  status_reg;         // STATUS
+    reg  [7:0]  curs_lsb_reg;       // CURS_LSB
+    reg  [2:0]  curs_msb_reg;       // CURS_MSB
+    wire [10:0] curs_addr;          // 11-bit cursor address
+    reg  [7:0]  ctrl_data_reg;      // control register output
+    
+    assign curs_addr = {curs_msb_reg, curs_lsb_reg};
     
     // control registers input
-    initial status_reg = 2'b00;     // cursor disabled, output disabled
-    initial col_reg    = 7'd0;
-    initial row_reg    = 5'd0;
+    initial status_reg   = 2'b00;   // cursor disabled, output disabled
+    initial curs_lsb_reg = 8'd0;    // cursor at (0,0)
+    initial curs_msb_reg = 3'd0;
     always @(posedge clk_cpu_i)
         if(ctrl_en_i)
-            if(ctrl_we_i)
-                case(ctrl_addr_i)
-                    2'b00: status_reg <= #1 ctrl_din_i[1:0];
-                    2'b01: col_reg    <= #1 ctrl_din_i[6:0];
-                    2'b10: row_reg    <= #1 ctrl_din_i[4:0];
+            if(we_i)
+                case(addr_i)
+                    12'h000: status_reg   <= #1 din_i[1:0];
+                    12'h001: curs_lsb_reg <= #1 din_i;
+                    12'h010: curs_msb_reg <= #1 din_i[2:0];
                 endcase
     
     // control registers output
-    initial ctrl_dout_reg = 8'h00;
+    initial ctrl_data_reg = 8'd0;
     always @(posedge clk_cpu_i)
         if(ctrl_en_i)
-            case(ctrl_addr_i)
-                2'b00:   ctrl_dout_reg <= #1 {6'b0000_00, status_reg};
-                2'b01:   ctrl_dout_reg <= #1 {1'b0, col_reg};
-                2'b10:   ctrl_dout_reg <= #1 {3'b000, row_reg};
-                default: ctrl_dout_reg <= #1 8'h00;
+            case(addr_i)
+                12'h000: ctrl_data_reg <= #1 {6'b0000_00, status_reg};
+                12'h001: ctrl_data_reg <= #1 curs_lsb_reg;
+                12'h010: ctrl_data_reg <= #1 {5'b0000_0, curs_msb_reg};
+                default: ctrl_data_reg <= #1 8'd0;
             endcase
-    
-    // output logic
-    assign ctrl_dout_o = ctrl_dout_reg;
     
     
 /* CRT CONTROLLER *************************************************************/
@@ -170,6 +179,7 @@ module VGAController
     wire [4:0]  char_row;           // character row
     wire [10:0] vga2vram_addr;      // VGA controller to video RAM address
     wire [15:0] vram2vga_data;      // video RAM to VGA controller data
+    wire [7:0]  vram2cpu_data;      // video RAM to v65C02 data
     
     // character row equals scan line mod 16
     assign char_row = crtc_line[8:4];
@@ -182,10 +192,10 @@ module VGAController
         (
         .clka_i (clk_cpu_i),
         .ena_i  (vram_en_i),
-        .wea_i  (vram_we_i),
-        .addra_i(vram_addr_i),
-        .dia_i  (vram_din_i),
-        .doa_o  (vram_dout_o),
+        .wea_i  (we_i),
+        .addra_i(addr_i),
+        .dia_i  (din_i),
+        .doa_o  (vram2cpu_data),
         .clkb_i (clk_pixel_i),
         .enb_i  (crtc_col_stb),
         .addrb_i(vga2vram_addr),
@@ -208,7 +218,7 @@ module VGAController
         chargen_en_stb_ff <= #1 crtc_col_stb;
     
     // character glyph row pipeline... matches delay from video RAM access
-    initial glyph_row_p1_reg = 4'h0;
+    initial glyph_row_p1_reg = 4'd0;
     always @(posedge clk_pixel_i)
         glyph_row_p1_reg <= #1 crtc_line[3:0];
     
@@ -243,7 +253,7 @@ module VGAController
     // text attribute pipeline and enable strobe... matches output delays to 
     // character generator
     initial attr_en_stb_ff = 1'b0;
-    initial attr_p1_reg    = 8'h00;
+    initial attr_p1_reg    = 8'd0;
     always @(posedge clk_pixel_i) begin
         attr_en_stb_ff <= #1 chargen_en_stb_ff;
         attr_p1_reg    <= #1 vram2vga_data[15:8];
@@ -261,17 +271,13 @@ module VGAController
     
 /* SYNCHRONIZER ***************************************************************/
     
-    wire        cursor_active;      // cursor active flag
-    wire        cursor_pixel;       // cursor pixel data
+    wire        cursor_pixel;       // cursor pixel generator
     wire [11:0] sync_rgb;           // RGB444 output
     wire        sync_hsync;         // horizontal sync
     wire        sync_vsync;         // vertical sync
-    
-    // cursor generation
-    assign cursor_active = status_reg[1] & (col_reg == crtc_col) &
-                           (row_reg == char_row);
-    assign cursor_pixel = (cursor_active) ? crtc_cursor
-                                          : 1'b0;
+       
+    assign cursor_pixel  = status_reg[1] & (curs_addr == vga2vram_addr)
+                                         & crtc_cursor;
     
     Synchronizer Synchronizer
         (
@@ -293,5 +299,28 @@ module VGAController
     assign rgb_o   = sync_rgb;
     assign hsync_o = sync_hsync;
     assign vsync_o = sync_vsync;
+    
+    
+/* VGA BUS OUTPUT LOGIC *******************************************************/
+    
+    reg ctrl_en_p1_ff;              // control register enable pipeline
+    reg vram_en_p1_ff;              // video RAM enable pipeline
+    
+    initial ctrl_en_p1_ff = 1'b0;
+    initial vram_en_p1_ff = 1'b0;
+    always @(posedge clk_cpu_i) begin
+        ctrl_en_p1_ff <= #1 ctrl_en_i;
+        vram_en_p1_ff <= #1 vram_en_i;
+    end
+    
+    // VGA bus data output multiplexer
+    always @* begin
+        dout_o = 8'd0;
+        
+        if(ctrl_en_p1_ff)
+            dout_o = ctrl_data_reg;
+        if(vram_en_p1_ff)
+            dout_o = vram2cpu_data;
+    end
     
 endmodule

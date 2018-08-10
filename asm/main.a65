@@ -53,9 +53,9 @@ main:       jsr     vga_init            ; initialize the VGA
             jsr     puts                ; print null terminated string
             
             lda     #13
-            sta     VGA_COL
+            sta     VGA_CURS_LSB
             lda     #0
-            sta     VGA_ROW             ; move cursor to (0,1)
+            sta     VGA_CURS_MSB        ; move cursor to (13,0)
             
             jsr     cursor_on           ; enable cursor
             
