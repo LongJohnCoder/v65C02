@@ -23,4 +23,4 @@ ip/
 *.o
 *.map
 *.rom
-*.txt
+hdl/memory/bios.txt
