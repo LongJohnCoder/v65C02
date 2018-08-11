@@ -35,6 +35,7 @@
 
 .PC02
 
-.IMPORT     puts
-.IMPORT     cursor_on
 .IMPORT     cursor_off
+.IMPORT     cursor_on
+.IMPORT     gotoxy
+.IMPORT     puts

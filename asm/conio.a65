@@ -18,7 +18,7 @@
 
 ;===============================================================================
 ; Program   : BIOS
-; File Name : video.a65
+; File Name : conio.a65
 ; Project   : v65C02 8-bit Computer
 ; Author    : Ryan Clarke
 ; E-mail    : kj6msg@icloud.com
@@ -37,9 +37,10 @@
 
 .INCLUDE    "memory.inc"
 
-.EXPORT     puts
-.EXPORT     cursor_on
 .EXPORT     cursor_off
+.EXPORT     cursor_on
+.EXPORT     gotoxy
+.EXPORT     puts
 
 
 ;= CONSTANTS ===================================================================
@@ -47,12 +48,87 @@
 CURS = $02
 
 
-;= ROUTINES ====================================================================
+;= SEGMENT =====================================================================
 
 .SEGMENT "bios"
 
 
+;= DISABLE CURSOR ==============================================================
+; Turns the cursor off by setting the CURS bit of the STATUS register to 0.
+; Parameters: none
+; Returns:    none
+
+cursor_off: lda     VGA_STATUS          ; load the VGA STATUS register
+            and     #.LOBYTE(~CURS)     ; CURS bit of STATUS off
+            sta     VGA_STATUS          ; write the VGA STATUS register
+            
+            rts
+
+
+;= ENABLE CURSOR ===============================================================
+; Turns the cursor on by setting the CURS bit of the STATUS register to 1.
+; Parameters: none
+; Returns:    none
+
+cursor_on:  lda     VGA_STATUS          ; load the VGA STATUS register
+            ora     #CURS               ; CURS bit of STATUS on
+            sta     VGA_STATUS          ; write the VGA STATUS register
+            
+            rts
+
+
+;= MOVE CURSOR =================================================================
+; Moves the cursor to a screen position.
+; Parameters: X = column
+;             Y = row
+; Returns:    none
+
+gotoxy:     stx     $00
+            stz     $01                 ; $01:$00 = column
+            
+            sty     $02
+            stz     $03                 ; $03:$02 = row
+            
+            asl     $02
+            asl     $02
+            asl     $02
+            asl     $02
+            rol     $03                 ; $03:$02 = row << 4
+            
+            lda     $00
+            clc
+            adc     $02
+            sta     $00
+            lda     $01
+            adc     $03
+            sta     $01                 ; $01:$00 = column + (row << 4)
+            
+            asl     $02
+            rol     $03
+            asl     $02
+            rol     $03                 ; $03:$02 = row << 6
+            
+            lda     $00
+            clc
+            adc     $02
+            sta     $00
+            lda     $01
+            adc     $03                 ; $01:$00 = column + (row << 4)
+            sta     $01                 ;                  + (row << 6)
+            
+            lda     $00
+            sta     VGA_CURS_LSB
+            lda     $01
+            sta     VGA_CURS_MSB        ; adjust cursor address
+            
+            rts
+
+
 ;= PRINT NULL-TERMINATED STRING ================================================
+; Prints a NULL terminated string to the screen.
+; Parameters: A = LSB of string address
+;             X = MSB of string address
+; Returns:    none
 
 puts:       sta     $00                 ; pull string address from X:A
             stx     $01                 ; $0001:0000 = string address
@@ -72,21 +148,3 @@ puts:       sta     $00                 ; pull string address from X:A
             bra     @loop
             
 @done:      rts
-
-
-;= ENABLE CURSOR ===============================================================
-
-cursor_on:  lda     VGA_STATUS          ; load the VGA STATUS register
-            ora     #CURS               ; CURS bit of STATUS on
-            sta     VGA_STATUS          ; write the VGA STATUS register
-            
-            rts
-
-
-;= DISABLE CURSOR ==============================================================
-
-cursor_off: lda     VGA_STATUS          ; load the VGA STATUS register
-            and     #.LOBYTE(~CURS)     ; CURS bit of STATUS off
-            sta     VGA_STATUS          ; write the VGA STATUS register
-            
-            rts
