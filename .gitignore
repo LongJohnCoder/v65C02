@@ -23,4 +23,11 @@ ip/
 *.o
 *.map
 *.rom
-hdl/memory/bios.txt
+
+# ROM data
+*.coe
+*.mem
+
+# updatemem files
+*.log
+*.jou

@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<MemInfo Version="1" Minor="0">
+    <Processor Endianness="Little" InstPath="dummy">
+        <AddressSpace Name="BIOS" Begin="0" End="16383">
+            <BusBlock>
+                <BitLane MemType="RAMB32" Placement="X2Y20">
+                    <DataWidth MSB="7" LSB="0"/>
+                    <AddressRange Begin="0" End="4095"/>
+                    <Parity ON="false" NumBits="0"/>
+                </BitLane>
+            </BusBlock>
+            <BusBlock>
+                <BitLane MemType="RAMB32" Placement="X2Y21">
+                    <DataWidth MSB="7" LSB="0"/>
+                    <AddressRange Begin="4096" End="8191"/>
+                    <Parity ON="false" NumBits="0"/>
+                </BitLane>
+            </BusBlock>
+            <BusBlock>
+                <BitLane MemType="RAMB32" Placement="X2Y22">
+                    <DataWidth MSB="7" LSB="0"/>
+                    <AddressRange Begin="8192" End="12287"/>
+                    <Parity ON="false" NumBits="0"/>
+                </BitLane>
+            </BusBlock>
+            <BusBlock>
+                <BitLane MemType="RAMB32" Placement="X3Y21">
+                    <DataWidth MSB="7" LSB="0"/>
+                    <AddressRange Begin="12288" End="16383"/>
+                    <Parity ON="false" NumBits="0"/>
+                </BitLane>
+            </BusBlock>
+        </AddressSpace>
+    </Processor>
+    <Config>
+        <Option Name="Part" Val="xc7a100tcsg324-1"/>
+    </Config>
+</MemInfo>

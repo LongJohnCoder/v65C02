@@ -136,10 +136,10 @@ module v65C02_Top
     
     ROM_16K8 BIOS
         (
-        .clk_i (clk_cpu),
-        .en_i  (bios_en),
-        .addr_i(cpu_addr[13:0]),
-        .dout_o(bios_dout)
+        .clka (clk_cpu),
+        .ena  (bios_en),
+        .addra(cpu_addr[13:0]),
+        .douta(bios_dout)
         );
     
     

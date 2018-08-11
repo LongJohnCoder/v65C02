@@ -1,7 +1,8 @@
 SHELL = /bin/sh
 
 BIOS     = bios.rom
-BIOS_TXT = bios.txt
+BIOS_COE = bios.coe
+BIOS_MEM = bios.mem
 OBJECTS  = main.o interrupts.o vga.o conio.o
 
 AS       = ca65
@@ -11,31 +12,33 @@ LD       = ld65
 LDCONFIG = memory.conf
 LDFLAGS  = --config $(LDCONFIG) --mapfile $(basename $@).map
 
-XXD      = xxd
-XXDFLAGS = -p -c 1
+BIN2COE  = ./bin2coe.sh
+BIN2MEM  = ./bin2mem.sh
 
-.PHONY: all rom2lst install uninstall clean
+.PHONY: all install uninstall clean
 
-all: $(BIOS_TXT)
+all: $(BIOS)
 
 %.o : %.a65
 	$(AS) $(ASFLAGS) -o $@ $<
 
 $(BIOS) : $(OBJECTS)
 	$(LD) $(LDFLAGS) $^
-
-$(BIOS_TXT) : $(BIOS)
-	$(XXD) $(XXDFLAGS) $< $@
+	$(BIN2COE) $@
+	$(BIN2MEM) $@
 
 install:
-	@cp -v $(BIOS_TXT) ../hdl/memory/
+	@cp -v $(BIOS_COE) ../hdl/memory/
+	@cp -v $(BIOS_MEM) ../hdl/memory/
 
 uninstall:
-	@rm -fv ../hdl/memory/$(BIOS_TXT)
+	@rm -fv ../hdl/memory/$(BIOS_COE)
+	@rm -fv ../hdl/memory/$(BIOS_MEM)
 
 clean :
 	@rm -fv *.lst
 	@rm -fv *.map
 	@rm -fv *.o
 	@rm -fv $(BIOS)
-	@rm -fv $(BIOS_TXT)
+	@rm -fv $(BIOS_COE)
+	@rm -fv $(BIOS_MEM)
