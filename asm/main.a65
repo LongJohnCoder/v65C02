@@ -41,6 +41,8 @@
 
 .EXPORT     main
 
+.DEFINE     VERSION "0.0"
+
 
 ;= MAIN PROGRAM ================================================================
 
@@ -48,19 +50,28 @@
 
 main:       jsr     vga_init            ; initialize the VGA
             
-            jsr     cursor_on           ; enable cursor
+            ldx     #.HIBYTE(bios_msg)
+            ldy     #.LOBYTE(bios_msg)
+            jsr     puts                ; print BIOS header
             
-            lda     #.LOBYTE(hello)
-            ldx     #.HIBYTE(hello)
-            jsr     puts                ; print null terminated string
+            ldx     #0
+            ldy     #1
+            jsr     gotoxy              ; move cursor to (0,1)
             
-            ldx     #13
-            ldy     #0
-            jsr     gotoxy              ; move cursor to (13,0)
+            ldx     #.HIBYTE(copyright)
+            ldy     #.LOBYTE(copyright)
+            jsr     puts                ; print copyright
+            
+            ldx     #0
+            ldy     #2
+            jsr     gotoxy              ; move cursor to (0,2)
+            
+            jsr     cursor_on
             
 @done:      jmp     @done
 
 
 ;= STRINGS =====================================================================
 
-hello:      .ASCIIZ "Hello, World!"
+bios_msg:   .ASCIIZ "v65C02 BIOS v", VERSION
+copyright:  .ASCIIZ "Copyright (C) 2018 Ryan Clarke"

@@ -128,28 +128,63 @@ gotoxy:     stx     $00
 
 
 ;= PRINT NULL-TERMINATED STRING ================================================
-; Prints a NULL terminated string to the screen.
-; Parameters: A = LSB of string address
-;             X = MSB of string address
+; Prints a NULL terminated string to the screen. Updates the cursor position
+; after printing.
+; Parameters: X = MSB of string address
+;             Y = LSB of string address
 ; Returns:    none
 ;
-; Cycles (jsr->rts): 30 + (21 * strlen)
+; Cycles (jsr->rts): 89 + (50 * strlen)
 
-puts:       sta     $00                 ; pull string address from X:A
-            stx     $01                 ; $0001:0000 = string address
+puts:       lda     VGA_CURS_MSB
+            sta     $01
+            lda     VGA_CURS_LSB
+            sta     $00                 ; $01:$00 = 11-bit cursor address
             
-            ldx     #$00                ; clear X and Y
-            ldy     #$00
+            asl     $00                 ;
+            rol     $01                 ; 12-bit VRAM addr = cursor address << 1
+            lda     #$80                ; VRAM starts at $8000
+            ora     $01                 ; generate proper 16-bit address
+            sta     $01                 ; $01:$00 = 16-bit VRAM address
             
-@loop:      lda     ($00), Y            ; retrieve character from string
+            stx     $03
+            sty     $02                 ; $03:$02 = string address
+            
+            ldy     #$00                ; Y = character counter
+            
+@loop:      lda     ($02), Y            ; retrieve character from string
             beq     @done               ; NUL? yes, then done
         
-            sta     VRAM, X             ; write character to VRAM
-        
-            iny                         ; next character
-            inx                         ; increment VRAM twice to skip over
-            inx                         ;   the attribute
-        
-            bra     @loop
+            sta     ($00)               ; write character to VRAM
             
-@done:      rts
+            lda     $01                 ; get VRAM address MSB
+            cmp     #$8F                ; VRAM address MSB == $8F?
+            bne     @next               ; no, get next character
+            
+            lda     $00                 ; get VRAM address LSB
+            cmp     #$9E                ; VRAM address LSB == $9E?
+            beq     @done               ; yes, we're done
+            
+@next:      iny                         ; next character
+            
+            lda     #$02                ; increment VRAM by 2 to skip attribute
+            clc
+            adc     $00                 ; add 2 to VRAM address LSB
+            sta     $00                 ; store new LSB
+            lda     #$00
+            adc     $01                 ; add carry to VRAM address MSB
+            sta     $01                 ; $01:$00 = VRAM addr + 2
+            
+            bra     @loop               ; keep getting characters
+            
+@done:      lda     #$0F
+            and     $01                 ; generate 12-bit VRAM address
+            lsr     $01                 ; 11-bit cursor addr = VRAM address >> 1
+            ror     $00                 ; $01:$00 = new 11-bit cursor address
+            
+            lda     $01
+            sta     VGA_CURS_MSB
+            lda     $00
+            sta     VGA_CURS_LSB        ; cursor address = $01:$00
+            
+            rts
