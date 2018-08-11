@@ -136,7 +136,7 @@ module VGAController
                 case(addr_i)
                     12'h000: status_reg   <= #1 din_i[1:0];
                     12'h001: curs_lsb_reg <= #1 din_i;
-                    12'h010: curs_msb_reg <= #1 din_i[2:0];
+                    12'h002: curs_msb_reg <= #1 din_i[2:0];
                 endcase
     
     // control registers output
@@ -146,7 +146,7 @@ module VGAController
             case(addr_i)
                 12'h000: ctrl_data_reg <= #1 {6'b0000_00, status_reg};
                 12'h001: ctrl_data_reg <= #1 curs_lsb_reg;
-                12'h010: ctrl_data_reg <= #1 {5'b0000_0, curs_msb_reg};
+                12'h002: ctrl_data_reg <= #1 {5'b0000_0, curs_msb_reg};
                 default: ctrl_data_reg <= #1 8'd0;
             endcase
     
