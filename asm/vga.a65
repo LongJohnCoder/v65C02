@@ -51,12 +51,13 @@ EN       = $01
 
 ;= INITIALIZE VGA ==============================================================
 ; Initialize the VGA before use. Disables the display and cursor, clears the
-; VRAM with the default character and attribute, and re-enables the display.
+; VRAM with the default character and attribute, sets the cursor to (0,0), and
+; re-enables the display.
 ;
 ; Parameters: none
 ; Returns:    none
 ;
-; Cycles:     113,545
+; Cycles:     113,553
 
 .SEGMENT "bios"
 
@@ -79,6 +80,9 @@ vga_init:   stz     VGA_STATUS          ; STATUS EN = 0, CURS = 0
             lda     $01                 ; load VRAM address MSB into A
             cmp     #VRAM_END           ; VRAM address MSB == $90?
             bne     @clrscr             ; no, then loop
+            
+            stz     VGA_CURS_LSB
+            stz     VGA_CURS_MSB        ; set cursor to (0,0)
             
             lda     #EN
             sta     VGA_STATUS          ; STATUS EN = 1, CURS = 0
