@@ -57,10 +57,12 @@ CURS = $02
 ; Turns the cursor off by setting the CURS bit of the STATUS register to 0.
 ; Parameters: none
 ; Returns:    none
+;
+; Cycles (jsr->rts): 22
 
-cursor_off: lda     VGA_STATUS          ; load the VGA STATUS register
-            and     #.LOBYTE(~CURS)     ; CURS bit of STATUS off
-            sta     VGA_STATUS          ; write the VGA STATUS register
+cursor_off: lda     #.LOBYTE(~CURS)     ; CURS bit mask off
+            and     VGA_STATUS          ; reset CURS bit
+            sta     VGA_STATUS          ; write the new VGA STATUS register
             
             rts
 
@@ -69,10 +71,12 @@ cursor_off: lda     VGA_STATUS          ; load the VGA STATUS register
 ; Turns the cursor on by setting the CURS bit of the STATUS register to 1.
 ; Parameters: none
 ; Returns:    none
+;
+; Cycles (jsr->rts): 22
 
-cursor_on:  lda     VGA_STATUS          ; load the VGA STATUS register
-            ora     #CURS               ; CURS bit of STATUS on
-            sta     VGA_STATUS          ; write the VGA STATUS register
+cursor_on:  lda     #CURS               ; CURS bit mask on
+            ora     VGA_STATUS          ; set CURS bit
+            sta     VGA_STATUS          ; write the new VGA STATUS register
             
             rts
 
@@ -82,44 +86,43 @@ cursor_on:  lda     VGA_STATUS          ; load the VGA STATUS register
 ; Parameters: X = column
 ;             Y = row
 ; Returns:    none
+;
+; Cycles (jsr->rts): 90
 
 gotoxy:     stx     $00
             stz     $01                 ; $01:$00 = column
             
-            sty     $02
-            stz     $03                 ; $03:$02 = row
+            tya
+            stz     $02                 ; $02:A = row
             
-            asl     $02
-            asl     $02
-            asl     $02
-            asl     $02
-            rol     $03                 ; $03:$02 = row << 4
+            asl     A
+            asl     A
+            asl     A
+            asl     A
+            rol     $02                 ; $02:A = row << 4
             
-            lda     $00
+            tax                         ; $02:X = row << 4
+            
             clc
-            adc     $02
+            adc     $00
             sta     $00
             lda     $01
-            adc     $03
+            adc     $02
             sta     $01                 ; $01:$00 = column + (row << 4)
             
-            asl     $02
-            rol     $03
-            asl     $02
-            rol     $03                 ; $03:$02 = row << 6
+            txa                         ; $02:A = row << 4
             
-            lda     $00
+            asl     A
+            rol     $02
+            asl     A
+            rol     $02                 ; $02:A = row << 6
+            
             clc
-            adc     $02
-            sta     $00
-            lda     $01
-            adc     $03                 ; $01:$00 = column + (row << 4)
-            sta     $01                 ;                  + (row << 6)
-            
-            lda     $00
+            adc     $00
             sta     VGA_CURS_LSB
             lda     $01
-            sta     VGA_CURS_MSB        ; adjust cursor address
+            adc     $02                 ; $01:$00 = column + (row << 4)
+            sta     VGA_CURS_MSB        ;                  + (row << 6)
             
             rts
 
@@ -129,6 +132,8 @@ gotoxy:     stx     $00
 ; Parameters: A = LSB of string address
 ;             X = MSB of string address
 ; Returns:    none
+;
+; Cycles (jsr->rts): 30 + (21 * strlen)
 
 puts:       sta     $00                 ; pull string address from X:A
             stx     $01                 ; $0001:0000 = string address

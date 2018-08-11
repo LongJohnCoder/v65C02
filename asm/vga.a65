@@ -50,6 +50,13 @@ EN       = $01
 
 
 ;= INITIALIZE VGA ==============================================================
+; Initialize the VGA before use. Disables the display and cursor, clears the
+; VRAM with the default character and attribute, and re-enables the display.
+;
+; Parameters: none
+; Returns:    none
+;
+; Cycles:     113,545
 
 .SEGMENT "bios"
 
@@ -58,10 +65,9 @@ vga_init:   stz     VGA_STATUS          ; STATUS EN = 0, CURS = 0
             lda     #.LOBYTE(VRAM)
             sta     $00
             lda     #.HIBYTE(VRAM)
-            sta     $01                 ; $0001:0000 = VRAM address
+            sta     $01                 ; $01:$00 = VRAM address
             
-            ; clear VRAM with NUL character and default attribute
-@clrscr:    lda     #NUL                ; fill character
+@clrscr:    lda     #NUL                ; default character
             sta     ($00)               ; store character to VRAM
             inc     $00                 ; increment VRAM address LSB
             lda     #ATTRIB             ; default attribute
@@ -71,7 +77,7 @@ vga_init:   stz     VGA_STATUS          ; STATUS EN = 0, CURS = 0
             
             inc     $01                 ; increment VRAM address MSB
             lda     $01                 ; load VRAM address MSB into A
-            cmp     #VRAM_END           ; MSB rollover?
+            cmp     #VRAM_END           ; VRAM address MSB == $90?
             bne     @clrscr             ; no, then loop
             
             lda     #EN
