@@ -1,5 +1,9 @@
 SHELL = /bin/sh
 
+prefix      = ..
+exec_prefix = $(prefix)
+bin_dir      = $(exec_prefix)/bram_data
+
 BIOS     = bios.rom
 BIOS_COE = bios.coe
 BIOS_MEM = bios.mem
@@ -28,12 +32,12 @@ $(BIOS) : $(OBJECTS)
 	$(BIN2MEM) $@
 
 install:
-	@cp -v $(BIOS_COE) ../hdl/memory/
-	@cp -v $(BIOS_MEM) ../hdl/memory/
+	@cp -v $(BIOS_COE) $(bin_dir)
+	@cp -v $(BIOS_MEM) $(bin_dir)
 
 uninstall:
-	@rm -fv ../hdl/memory/$(BIOS_COE)
-	@rm -fv ../hdl/memory/$(BIOS_MEM)
+	@rm -fv $(bin_dir)/$(BIOS_COE)
+	@rm -fv $(bin_dir)/$(BIOS_MEM)
 
 clean :
 	@rm -fv *.lst
