@@ -25,6 +25,8 @@ ip/
 *.rom
 
 # ROM data
+*.mmi
+!template.mmi
 *.coe
 *.mem
 
