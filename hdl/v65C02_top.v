@@ -223,6 +223,7 @@ module v65C02_Top
     
     reg [3:0] cpu_addr_p1_4_reg;        // v65C02 4-bit MSB pipeline
     
+    // v65C02 expects valid data after one-clock cycle
     initial cpu_addr_p1_4_reg = 4'h0;
     always @(posedge clk_cpu)
         cpu_addr_p1_4_reg <= #1 cpu_addr[15:12];

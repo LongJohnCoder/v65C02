@@ -45,8 +45,8 @@ Purpose : Seven-segment display controller for the v65C02 8-bit Computer on the
           DIGITS   D7 |  D6 |  D5 |  D4 |  D3 |  D2 |  D1 |  D0
           DP      DP7 | DP6 | DP5 | DP4 | DP3 | DP2 | DP1 | DP0
           
-          There is also an internal 8 x 4-bit RAM to contain the data for each
-          digit.
+          There are also four data registers to write two hexadecimal digits at
+          a time, aka to write a byte.
 *******************************************************************************/
 
 
@@ -70,7 +70,7 @@ module SevenSegmentController
     reg [7:0] dp_reg;                   // DP
     reg [3:0] data_reg [0:7];           // DATA
     
-    // controller registers and RAM input
+    // controller registers
     initial digits_reg = 8'd0;          // all digits disabled
     initial dp_reg     = 8'd0;          // all decimal points disabled
     always @(posedge clk_i)
@@ -79,15 +79,37 @@ module SevenSegmentController
                 case(addr_i)
                     12'h000: digits_reg  <= #1 din_i;
                     12'h001: dp_reg      <= #1 din_i;
-                    12'h002: data_reg[0] <= #1 din_i[3:0];
-                    12'h003: data_reg[1] <= #1 din_i[3:0];
-                    12'h004: data_reg[2] <= #1 din_i[3:0];
-                    12'h005: data_reg[3] <= #1 din_i[3:0];
-                    12'h006: data_reg[4] <= #1 din_i[3:0];
-                    12'h007: data_reg[5] <= #1 din_i[3:0];
-                    12'h008: data_reg[6] <= #1 din_i[3:0];
-                    12'h009: data_reg[7] <= #1 din_i[3:0];
                 endcase
+    
+    // byte write
+    always @(posedge clk_i)
+        if(en_i)
+            if(we_i)
+                case(addr_i)
+                    12'h002:
+                        begin
+                            data_reg[0] <= #1 din_i[3:0];
+                            data_reg[1] <= #1 din_i[7:4];
+                        end
+                
+                    12'h003:
+                        begin
+                            data_reg[2] <= #1 din_i[3:0];
+                            data_reg[3] <= #1 din_i[7:4];
+                        end
+                
+                    12'h004:
+                        begin
+                            data_reg[4] <= #1 din_i[3:0];
+                            data_reg[5] <= #1 din_i[7:4];
+                        end
+                
+                    12'h005:
+                        begin
+                            data_reg[6] <= #1 din_i[3:0];
+                            data_reg[7] <= #1 din_i[7:4];
+                        end
+                    endcase
     
     
 /* HEX TO SEVEN-SEGMENT *******************************************************/
