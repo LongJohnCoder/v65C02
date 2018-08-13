@@ -23,7 +23,16 @@ BIN2MEM  = ./bin2mem.sh
 
 all: $(BIOS)
 
-%.o : %.a65
+main.o : main.a65 conio.inc memory.inc vga.inc
+	$(AS) $(ASFLAGS) -o $@ $<
+
+interrupts.o : interrupts.a65
+	$(AS) $(ASFLAGS) -o $@ $<
+
+vga.o : vga.a65 ascii.inc colors.inc memory.inc 
+	$(AS) $(ASFLAGS) -o $@ $<
+
+conio.o : conio.a65 memory.inc
 	$(AS) $(ASFLAGS) -o $@ $<
 
 $(BIOS) : $(OBJECTS)
