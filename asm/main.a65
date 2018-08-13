@@ -68,6 +68,34 @@ main:       jsr     vga_init            ; initialize the VGA
             
             jsr     cursor_on
             
+            ; Display 76543210 on the seven-segment display
+            lda     #$00
+            sta     SSEG_0
+            
+            lda     #$01
+            sta     SSEG_1
+            
+            lda     #$02
+            sta     SSEG_2
+            
+            lda     #$03
+            sta     SSEG_3
+            
+            lda     #$04
+            sta     SSEG_4
+            
+            lda     #$05
+            sta     SSEG_5
+            
+            lda     #$06
+            sta     SSEG_6
+            
+            lda     #$07
+            sta     SSEG_7
+            
+            lda     #$FF
+            sta     SSEG_DIGITS
+            
 @done:      jmp     @done
 
 

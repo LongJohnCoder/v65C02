@@ -41,11 +41,23 @@ module v65C02_Top
     input  wire       CLK100MHZ,        // 100 MHz Nexys 4 DDR clock
     input  wire       CPU_RESETN,       // active-low asynchronous reset
     
+    // VGA
     output wire [3:0] VGA_R,            // red
     output wire [3:0] VGA_G,            // green
     output wire [3:0] VGA_B,            // blue
     output wire       VGA_HS,           // horizontal sync
-    output wire       VGA_VS            // vertical sync
+    output wire       VGA_VS,           // vertical sync
+    
+    // seven-segment display
+    output wire [7:0] AN,
+    output wire       CA,
+    output wire       CB,
+    output wire       CC,
+    output wire       CD,
+    output wire       CE,
+    output wire       CF,
+    output wire       CG,
+    output wire       DP
     );
     
     
@@ -54,7 +66,7 @@ module v65C02_Top
     wire clk_pixel;                     // pixel clock
     wire clk_cpu;                       // CPU clock
     
-    clk_gen ClockGen
+    ClockGen ClockGen
         (
         .clk_100M_i  (CLK100MHZ),
         .clk_28_32M_o(clk_pixel),
@@ -148,7 +160,7 @@ module v65C02_Top
     localparam VRAM_ADDR   = 4'b1000;   // VRAM = $8000 -> $8FFF
     localparam VGA_CONTROL = 4'b1001;   // VGA control bus = $9000 -> $9FFF
     
-    wire        vga_ctrl_en;            // VGA control registers enable
+    wire        vga_ctrl_en;            // VGA control bus enable
     wire        vga_vram_en;            // video RAM enable
     wire [7:0]  vga_dout;               // 8-bit data output
     wire [11:0] vga_rgb;                // RGB444 output
@@ -177,6 +189,32 @@ module v65C02_Top
     assign {VGA_R, VGA_G, VGA_B} = vga_rgb;
     assign VGA_HS = vga_hsync;
     assign VGA_VS = vga_vsync;
+    
+    
+/* SEVEN-SEGMENT CONTROLLER ***************************************************/
+    
+    localparam SSEG_CONTROL = 4'b1010;  // SSEG control bus = $A000 -> $AFFF
+    
+    wire sseg_en;                       // SSEG control bus enable
+    wire [7:0] sseg_an_n;               // anode (active low)
+    wire [7:0] sseg_sseg_n;             // seven-segment digit (active low)
+    
+    assign sseg_en = (cpu_addr[15:12] == SSEG_CONTROL);
+    
+    SevenSegmentController SevenSegmentController
+        (
+        .clk_i   (clk_cpu),
+        .en_i    (sseg_en),
+        .we_i    (cpu_we),
+        .addr_i  (cpu_addr[11:0]),
+        .din_i   (cpu_dout),
+        .an_n_o  (sseg_an_n),
+        .sseg_n_o(sseg_sseg_n)
+        );
+    
+    // output logic
+    assign AN = sseg_an_n;
+    assign {DP, CG, CF, CE, CD, CC, CB, CA} = sseg_sseg_n;
     
     
 /* MEMORY DECODING LOGIC ******************************************************/
