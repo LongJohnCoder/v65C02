@@ -52,15 +52,15 @@ Purpose : Seven-segment display controller for the v65C02 8-bit Computer on the
 
 module SevenSegmentController
     (
-    input wire         clk_i,           // CPU clock
+    input wire        clk_i,            // CPU clock
     
-    input wire         en_i,            // controller bus enable
-    input wire         we_i,            // write enable
-    input wire  [11:0] addr_i,          // 4-bit register address bus
-    input wire  [7:0]  din_i,           // 8-bit data input bus
+    input wire        en_i,             // controller bus enable
+    input wire        we_i,             // write enable
+    input wire  [7:0] addr_i,           // 8-bit register address bus
+    input wire  [7:0] din_i,            // 8-bit data input bus
     
-    output wire [7:0]  an_n_o,          // anode (active low)
-    output wire [7:0]  sseg_n_o         // segments (active low)
+    output wire [7:0] an_n_o,           // anode (active low)
+    output wire [7:0] sseg_n_o          // segments (active low)
     );
     
     
@@ -77,34 +77,34 @@ module SevenSegmentController
         if(en_i)
             if(we_i)
                 case(addr_i)
-                    12'h000: digits_reg  <= #1 din_i;
-                    12'h001: dp_reg      <= #1 din_i;
+                    8'h00: digits_reg <= #1 din_i;
+                    8'h01: dp_reg     <= #1 din_i;
                 endcase
     
-    // byte write
+    // data registers
     always @(posedge clk_i)
         if(en_i)
             if(we_i)
                 case(addr_i)
-                    12'h002:
+                    8'h02:
                         begin
                             data_reg[0] <= #1 din_i[3:0];
                             data_reg[1] <= #1 din_i[7:4];
                         end
                 
-                    12'h003:
+                    8'h03:
                         begin
                             data_reg[2] <= #1 din_i[3:0];
                             data_reg[3] <= #1 din_i[7:4];
                         end
                 
-                    12'h004:
+                    8'h04:
                         begin
                             data_reg[4] <= #1 din_i[3:0];
                             data_reg[5] <= #1 din_i[7:4];
                         end
                 
-                    12'h005:
+                    8'h05:
                         begin
                             data_reg[6] <= #1 din_i[3:0];
                             data_reg[7] <= #1 din_i[7:4];
@@ -119,7 +119,7 @@ module SevenSegmentController
     generate
         genvar i;
         
-        // hexadecimal to seven-segment converters
+        // 8x hexadecimal to seven-segment converters
         for(i = 0; i <= 7; i = i + 1)
             begin : nibbles
                 HexToSSEG HexToSSEG

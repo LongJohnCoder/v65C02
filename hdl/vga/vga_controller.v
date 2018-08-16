@@ -133,20 +133,20 @@ module VGAController
     always @(posedge clk_cpu_i)
         if(ctrl_en_i)
             if(we_i)
-                case(addr_i)
-                    12'h000: status_reg   <= #1 din_i[1:0];
-                    12'h001: curs_lsb_reg <= #1 din_i;
-                    12'h002: curs_msb_reg <= #1 din_i[2:0];
+                case(addr_i[7:0])
+                    8'h00: status_reg   <= #1 din_i[1:0];
+                    8'h01: curs_lsb_reg <= #1 din_i;
+                    8'h02: curs_msb_reg <= #1 din_i[2:0];
                 endcase
     
     // control registers output
     initial ctrl_data_reg = 8'd0;
     always @(posedge clk_cpu_i)
         if(ctrl_en_i)
-            case(addr_i)
-                12'h000: ctrl_data_reg <= #1 {6'b0000_00, status_reg};
-                12'h001: ctrl_data_reg <= #1 curs_lsb_reg;
-                12'h002: ctrl_data_reg <= #1 {5'b0000_0, curs_msb_reg};
+            case(addr_i[7:0])
+                8'h00:   ctrl_data_reg <= #1 {6'b0000_00, status_reg};
+                8'h01:   ctrl_data_reg <= #1 curs_lsb_reg;
+                8'h02:   ctrl_data_reg <= #1 {5'b0000_0, curs_msb_reg};
                 default: ctrl_data_reg <= #1 8'd0;
             endcase
     

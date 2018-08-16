@@ -119,7 +119,7 @@ module v65C02_Top
     
 /* RAM ************************************************************************/
     
-    localparam RAM_ADDR = 4'b0XXX;      // RAM = $0000 -> $7FFF
+    localparam RAM_ADDR = 8'b0XXX_XXXX; // RAM = $0000 -> $7FFF
     
     wire       ram_en;                  // RAM enable
     wire [7:0] ram_dout;                // RAM 8-bit data out
@@ -139,10 +139,10 @@ module v65C02_Top
     
 /* ROM BIOS *******************************************************************/
     
-    localparam BIOS_ADDR = 4'b11XX;     // BIOS = $C000 -> $FFFF
+    localparam BIOS_ADDR = 8'b11XX_XXXX;    // BIOS = $C000 -> $FFFF
     
-    wire       bios_en;                 // BIOS enable
-    wire [7:0] bios_dout;               // BIOS 8-bit data out
+    wire       bios_en;                     // BIOS enable
+    wire [7:0] bios_dout;                   // BIOS 8-bit data out
     
     assign bios_en = & cpu_addr[15:14];
     
@@ -157,8 +157,8 @@ module v65C02_Top
     
 /* VGA CONTROLLER *************************************************************/
     
-    localparam VRAM_ADDR   = 4'b1000;   // VRAM = $8000 -> $8FFF
-    localparam VGA_CONTROL = 4'b1001;   // VGA control bus = $9000 -> $9FFF
+    localparam VRAM_ADDR   = 8'b1000_XXXX;  // VRAM = $8000 -> $8FFF
+    localparam VGA_CONTROL = 8'b1001_0000;  // VGA control bus = $9000 -> $90FF
     
     wire        vga_ctrl_en;            // VGA control bus enable
     wire        vga_vram_en;            // video RAM enable
@@ -167,8 +167,8 @@ module v65C02_Top
     wire        vga_hsync;              // horizontal sync
     wire        vga_vsync;              // vertical sync
     
-    assign vga_ctrl_en  = (cpu_addr[15:12] == VGA_CONTROL);
-    assign vga_vram_en  = (cpu_addr[15:12] == VRAM_ADDR);
+    assign vga_ctrl_en = (cpu_addr[15:8] == VGA_CONTROL);
+    assign vga_vram_en = (cpu_addr[15:12] == VRAM_ADDR[7:4]);
     
     VGAController VGAController
         (
@@ -193,20 +193,20 @@ module v65C02_Top
     
 /* SEVEN-SEGMENT CONTROLLER ***************************************************/
     
-    localparam SSEG_CONTROL = 4'b1010;  // SSEG control bus = $A000 -> $AFFF
+    localparam SSEG_CONTROL = 8'b1001_0001;     // SSEG ctrl bus = $9100->$91FF
     
     wire sseg_en;                       // SSEG control bus enable
     wire [7:0] sseg_an_n;               // anode (active low)
     wire [7:0] sseg_sseg_n;             // seven-segment digit (active low)
     
-    assign sseg_en = (cpu_addr[15:12] == SSEG_CONTROL);
+    assign sseg_en = (cpu_addr[15:8] == SSEG_CONTROL);
     
     SevenSegmentController SevenSegmentController
         (
         .clk_i   (clk_cpu),
         .en_i    (sseg_en),
         .we_i    (cpu_we),
-        .addr_i  (cpu_addr[11:0]),
+        .addr_i  (cpu_addr[7:0]),
         .din_i   (cpu_dout),
         .an_n_o  (sseg_an_n),
         .sseg_n_o(sseg_sseg_n)
@@ -219,22 +219,22 @@ module v65C02_Top
     
 /* MEMORY DECODING LOGIC ******************************************************/
     
-    localparam NOP = 8'hEA;             // 65C02 NOP opcode
+    localparam NOP = 8'h00;             // 65C02 NOP opcode
     
-    reg [3:0] cpu_addr_p1_4_reg;        // v65C02 4-bit MSB pipeline
+    reg [7:0] cpu_addr_p1_msb_reg;      // v65C02 address MSB pipeline
     
     // v65C02 expects valid data after one-clock cycle
-    initial cpu_addr_p1_4_reg = 4'h0;
+    initial cpu_addr_p1_msb_reg = 8'h00;
     always @(posedge clk_cpu)
-        cpu_addr_p1_4_reg <= #1 cpu_addr[15:12];
+        cpu_addr_p1_msb_reg <= #1 cpu_addr[15:8];
     
     // v65C02 data input multiplexer
     always @*
-        casex(cpu_addr_p1_4_reg)
+        casex(cpu_addr_p1_msb_reg)
             RAM_ADDR:    cpu_din = ram_dout;
             VRAM_ADDR:   cpu_din = vga_dout;
-            BIOS_ADDR:   cpu_din = bios_dout;
             VGA_CONTROL: cpu_din = vga_dout;
+            BIOS_ADDR:   cpu_din = bios_dout;
             default:     cpu_din = NOP;
         endcase
     
