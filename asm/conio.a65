@@ -17,7 +17,7 @@
 
 
 ;===============================================================================
-; Program   : BIOS
+; Program   : v65C02 BIOS
 ; File Name : conio.a65
 ; Project   : v65C02 8-bit Computer
 ; Author    : Ryan Clarke
@@ -37,60 +37,23 @@
 
 .INCLUDE    "memory.inc"
 
-.EXPORT     cursor_off
-.EXPORT     cursor_on
 .EXPORT     gotoxy
 .EXPORT     puts
 
 
-;= CONSTANTS ===================================================================
-
-CURS = $02
-
-
-;= SEGMENT =====================================================================
-
-.SEGMENT "bios"
-
-
-;= DISABLE CURSOR ==============================================================
-; Turns the cursor off by setting the CURS bit of the STATUS register to 0.
-; Parameters: none
-; Returns:    none
-;
-; Cycles (jsr->rts): 22
-
-cursor_off: lda     #.LOBYTE(~CURS)     ; CURS bit mask off
-            and     VGA_STATUS          ; reset CURS bit
-            sta     VGA_STATUS          ; write the new VGA STATUS register
-            
-            rts
-
-
-;= ENABLE CURSOR ===============================================================
-; Turns the cursor on by setting the CURS bit of the STATUS register to 1.
-; Parameters: none
-; Returns:    none
-;
-; Cycles (jsr->rts): 22
-
-cursor_on:  lda     #CURS               ; CURS bit mask on
-            ora     VGA_STATUS          ; set CURS bit
-            sta     VGA_STATUS          ; write the new VGA STATUS register
-            
-            rts
-
-
 ;= MOVE CURSOR =================================================================
 ; Moves the cursor to a screen position.
+;
 ; Parameters: X = column
 ;             Y = row
 ; Returns:    none
 ;
 ; Cycles (jsr->rts): 90
 
+.CODE
+
 gotoxy:     stx     $00
-            stz     $01                 ; $01:$00 = column
+            stz     $01                 ; $0000 = column
             
             tya
             stz     $02                 ; $02:A = row
@@ -108,7 +71,7 @@ gotoxy:     stx     $00
             sta     $00
             lda     $01
             adc     $02
-            sta     $01                 ; $01:$00 = column + (row << 4)
+            sta     $01                 ; $0000 = column + (row << 4)
             
             txa                         ; $02:A = row << 4
             
@@ -117,74 +80,80 @@ gotoxy:     stx     $00
             asl     A
             rol     $02                 ; $02:A = row << 6
             
+            ; VGA cursor address = column + (row << 4) + (row << 6)
+            ; $0000 = column + (row << 4)
+            ; $02:A = row << 6
             clc
             adc     $00
             sta     VGA_CURS_LSB
             lda     $01
-            adc     $02                 ; $01:$00 = column + (row << 4)
-            sta     VGA_CURS_MSB        ;                  + (row << 6)
+            adc     $02
+            sta     VGA_CURS_MSB
             
             rts
 
 
 ;= PRINT NULL-TERMINATED STRING ================================================
-; Prints a NULL terminated string to the screen. Updates the cursor position
+; Prints a NUL terminated string to the screen. Updates the cursor position
 ; after printing.
+;
 ; Parameters: X = MSB of string address
 ;             Y = LSB of string address
 ; Returns:    none
 ;
-; Cycles (jsr->rts): 89 + (50 * strlen)
+; Cycles (jsr->rts): 89 + (50 * string length)
+
+.CODE
 
 puts:       lda     VGA_CURS_MSB
             sta     $01
             lda     VGA_CURS_LSB
-            sta     $00                 ; $01:$00 = 11-bit cursor address
+            sta     $00                 ; $0000 = 11-bit cursor address
             
-            asl     $00                 ;
-            rol     $01                 ; 12-bit VRAM addr = cursor address << 1
-            lda     #$80                ; VRAM starts at $8000
+            asl     $00                 ; 12-bit VRAM addr = cursor address << 1
+            rol     $01                 ; $0000 << 1
+            lda     #.HIBYTE(VRAM)      ; retrieve VRAM starting page
             ora     $01                 ; generate proper 16-bit address
-            sta     $01                 ; $01:$00 = 16-bit VRAM address
+            sta     $01                 ; ($00) = 16-bit VRAM address
             
             stx     $03
-            sty     $02                 ; $03:$02 = string address
+            sty     $02                 ; ($02) = string address
             
             ldy     #$00                ; Y = character counter
             
 @loop:      lda     ($02), Y            ; retrieve character from string
-            beq     @done               ; NUL? yes, then done
+            beq     @done               ; character == NUL?
         
             sta     ($00)               ; write character to VRAM
             
-            lda     $01                 ; get VRAM address MSB
-            cmp     #$8F                ; VRAM address MSB == $8F?
-            bne     @next               ; no, get next character
+            lda     $01                 ; get VRAM address page
+            cmp     #$8F                ; compare with $8F
+            bne     @next               ; VRAM page != $8F?
             
             lda     $00                 ; get VRAM address LSB
-            cmp     #$9E                ; VRAM address LSB == $9E?
-            beq     @done               ; yes, we're done
+            cmp     #$9E                ; compare with $9E
+            beq     @done               ; VRAM address LSB == $9E?
             
 @next:      iny                         ; next character
             
-            lda     #$02                ; increment VRAM by 2 to skip attribute
+            lda     #$02                ; skip over the attribute byte
             clc
             adc     $00                 ; add 2 to VRAM address LSB
             sta     $00                 ; store new LSB
             lda     #$00
-            adc     $01                 ; add carry to VRAM address MSB
-            sta     $01                 ; $01:$00 = VRAM addr + 2
+            adc     $01                 ; add carry to VRAM page
+            sta     $01                 ; $(00) = VRAM addr + 2
             
             bra     @loop               ; keep getting characters
             
 @done:      lda     #$0F
             and     $01                 ; generate 12-bit VRAM address
             lsr     $01                 ; 11-bit cursor addr = VRAM address >> 1
-            ror     $00                 ; $01:$00 = new 11-bit cursor address
+            ror     $00                 ; $0000 = new 11-bit cursor address
             
             lda     $01
             sta     VGA_CURS_MSB
             lda     $00
-            sta     VGA_CURS_LSB        ; cursor address = $01:$00
+            sta     VGA_CURS_LSB        ; cursor address = $0000
             
             rts

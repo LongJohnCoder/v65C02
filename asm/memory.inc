@@ -37,7 +37,8 @@
 
 ZP           = $0000
 STACK        = $0100
-RAM          = $0200
+BIOS_RAM     = $0200
+PROG_RAM     = $0300
 VRAM         = $8000
 VGA_STATUS   = $9000
 VGA_CURS_LSB = $9001
@@ -48,4 +49,4 @@ SSEG_BYTE0   = $A002
 SSEG_BYTE1   = $A003
 SSEG_BYTE2   = $A004
 SSEG_BYTE3   = $A005
-BIOS         = $C000
+BIOS_ROM     = $C000

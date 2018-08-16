@@ -17,7 +17,7 @@
 
 
 ;===============================================================================
-; Program   : BIOS
+; Program   : v65C02 BIOS
 ; File Name : interrupts.a65
 ; Project   : v65C02 8-bit Computer
 ; Author    : Ryan Clarke
@@ -35,29 +35,31 @@
 
 .PC02
 
-.IMPORT main
+.IMPORT start
 
 
 ;= INTERRUPT ROUTINES ==========================================================
 
-.SEGMENT "bios"
+.CODE
 
-NMI:    rti
-
-
-reset:  ldx     #$FF
-        txs                     ; initialize the stack pointer
-        cli                     ; enable IRQ
-        jmp     main
+; non-maskable interrupt
+nmi:    rti
 
 
-IRQ:    rti
+; hardware reset
+reset:  ldx     #$FF            ; X = $FF
+        txs                     ; initialize the stack pointer at $01FF
+        jmp     start           ; BIOS start point
+
+
+; interrupt request
+irq:    rti
 
 
 ;= INTERRUPT VECTORS ===========================================================
 
-.SEGMENT "vectors"
+.SEGMENT "VECTORS"
 
-        .WORD   NMI             ; $FFFB:FFFA
-        .WORD   reset           ; $FFFD:FFFC
-        .WORD   IRQ             ; $FFFF:FFFE
+        .WORD   nmi             ; $FFFA
+        .WORD   reset           ; $FFFC
+        .WORD   irq             ; $FFFE

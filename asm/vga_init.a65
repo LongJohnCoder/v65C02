@@ -17,7 +17,7 @@
 
 
 ;===============================================================================
-; Program   : BIOS
+; Program   : v65C02 BIOS
 ; File Name : vga.a65
 ; Project   : v65C02 8-bit Computer
 ; Author    : Ryan Clarke
@@ -29,7 +29,7 @@
 ;    -------------------------------------------------
 ;    0.0         | 08/07/2018    | Initial development
 ;===============================================================================
-; Purpose : VGA routines for the v65C02 BIOS.
+; Purpose : VGA initialization routine for the v65C02 BIOS.
 ;===============================================================================
 
 
@@ -44,8 +44,8 @@
 
 ;= CONSTANTS ===================================================================
 
-VRAM_END = .HIBYTE(VRAM) + $10          ; video RAM is 4KB
-ATTRIB   = (BLACK << 4) | LIGHT_GRAY    ; default attribute: light gray on black
+VRAM_END = VRAM + $1000                 ; video RAM is 4KB
+ATTRIB   = (BLACK << 4) | LIGHT_GRAY    ; light grey text on black
 EN       = $01
 
 
@@ -59,32 +59,32 @@ EN       = $01
 ;
 ; Cycles:     113,553
 
-.SEGMENT "bios"
+.CODE
 
-vga_init:   stz     VGA_STATUS          ; STATUS EN = 0, CURS = 0
+vga_init:   stz     VGA_STATUS          ; disable display, disable cursor
             
-            lda     #.LOBYTE(VRAM)
-            sta     $00
             lda     #.HIBYTE(VRAM)
-            sta     $01                 ; $01:$00 = VRAM address
+            sta     $01
+            lda     #.LOBYTE(VRAM)
+            sta     $00                 ; ($00) = VRAM address
             
-@clrscr:    lda     #NUL                ; default character
+@loop:      lda     #NUL                ; default character
             sta     ($00)               ; store character to VRAM
             inc     $00                 ; increment VRAM address LSB
             lda     #ATTRIB             ; default attribute
             sta     ($00)               ; store attribute to VRAM
             inc     $00                 ; increment VRAM address LSB
-            bne     @clrscr             ; rollover? no, then loop
+            bne     @loop               ; $00 != 0?
             
             inc     $01                 ; increment VRAM address MSB
-            lda     $01                 ; load VRAM address MSB into A
-            cmp     #VRAM_END           ; VRAM address MSB == $90?
-            bne     @clrscr             ; no, then loop
+            lda     $01                 ; A = VRAM address MSB
+            cmp     #.HIBYTE(VRAM_END)  ; compare VRAM addr w/ VRAM end (MSBs)
+            bne     @loop               ; VRAM address MSB != $90?
             
-            stz     VGA_CURS_LSB
             stz     VGA_CURS_MSB        ; set cursor to (0,0)
+            stz     VGA_CURS_LSB
             
-            lda     #EN
-            sta     VGA_STATUS          ; STATUS EN = 1, CURS = 0
+            lda     #EN                 ; EN = 1
+            sta     VGA_STATUS          ; enable display, disable cursor
             
             rts

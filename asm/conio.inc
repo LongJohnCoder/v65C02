@@ -17,7 +17,7 @@
 
 
 ;===============================================================================
-; Program   : BIOS
+; Program   : v65C02 BIOS
 ; File Name : conio.inc
 ; Project   : v65C02 8-bit Computer
 ; Author    : Ryan Clarke
@@ -27,15 +27,40 @@
 ;
 ;    Version     | Date          | Description
 ;    -------------------------------------------------
-;    0.0         | 08/07/2018    | Initial development
+;    0.0         | 08/15/2018    | Initial development
 ;===============================================================================
-; Purpose : Include file associated with console I/O routines for v65C02 BIOS.
+; Purpose : Console I/O macros for the v65C02 BIOS.
 ;===============================================================================
 
 
-.PC02
+CURS = $02
 
-.IMPORT     cursor_off
-.IMPORT     cursor_on
-.IMPORT     gotoxy
-.IMPORT     puts
+
+;= DISABLE CURSOR ==============================================================
+; Turns the cursor off by resetting the CURS bit of the STATUS register to 0.
+;
+; Parameters: none
+; Returns:    none
+;
+; Cycles (lda->sta): 10
+
+.macro cursor_off
+            lda     #.LOBYTE(~CURS)     ; CURS bit mask off
+            and     VGA_STATUS          ; reset CURS bit
+            sta     VGA_STATUS          ; write the new VGA STATUS register
+.endmacro
+
+
+;= ENABLE CURSOR ===============================================================
+; Turns the cursor on by setting the CURS bit of the STATUS register to 1.
+;
+; Parameters: none
+; Returns:    none
+;
+; Cycles (lda->sta): 10
+
+.macro cursor_on
+            lda     #CURS               ; CURS bit mask on
+            ora     VGA_STATUS          ; set CURS bit
+            sta     VGA_STATUS          ; write the new VGA STATUS register
+.endmacro

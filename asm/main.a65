@@ -17,7 +17,7 @@
 
 
 ;===============================================================================
-; Program   : BIOS
+; Program   : v65C02 BIOS
 ; File Name : main.a65
 ; Project   : v65C02 8-bit Computer
 ; Author    : Ryan Clarke
@@ -37,22 +37,56 @@
 
 .INCLUDE    "conio.inc"
 .INCLUDE    "memory.inc"
-.INCLUDE    "vga.inc"
 
-.EXPORT     main
+.IMPORT     gotoxy
+.IMPORT     itoa
+.IMPORT     puts
+.IMPORT     vga_init
+
+.EXPORT     start
 
 .DEFINE     VERSION "0.0"
 
 
-;= MAIN PROGRAM ================================================================
+;= BIOS ENTRY POINT ============================================================
+; Verify RAM is installed. If not, display an error message and halt. Otherwise,
+; continue to the main program.
 
-.SEGMENT "bios"
+.CODE
 
-main:       jsr     vga_init            ; initialize the VGA
+start:      lda     #$AA                ; verify RAM by checking zero page
+            sta     $FF                 ; store $AA to $00FF
+            lda     $FF                 ; read $00FF
+            cmp     #$AA                ; compare with $AA
+            bne     @no_ram             ; $00FF != $AA?
             
-            ldx     #.HIBYTE(bios_msg)
-            ldy     #.LOBYTE(bios_msg)
-            jsr     puts                ; print BIOS header
+            pha                         ; now check the stack by pushing $AA
+            pla                         ; pull the pushed value
+            cmp     #$AA                ; compare with $AA
+            beq     main                ; pushed/pulled == $AA?
+            
+@no_ram:    lda     #$C0                ; display error code on SSEG display
+            sta     SSEG_BYTE3
+            lda     #$DE
+            sta     SSEG_BYTE2
+            stz     SSEG_BYTE0
+            lda     #$F3
+            sta     SSEG_DIGITS         ; display "C0DE 00" on SSEG
+            
+@halt:      jmp     @halt               ; halt, we can't do anything without RAM
+            
+            
+;= BIOS MAIN PROGRAM ===========================================================
+
+.CODE
+
+main:       cli                         ; enable interrupts
+            
+            jsr     vga_init            ; initialize the VGA
+            
+            ldx     #.HIBYTE(bios_ver)
+            ldy     #.LOBYTE(bios_ver)
+            jsr     puts                ; BIOS header
             
             ldx     #0
             ldy     #1
@@ -60,34 +94,77 @@ main:       jsr     vga_init            ; initialize the VGA
             
             ldx     #.HIBYTE(copyright)
             ldy     #.LOBYTE(copyright)
-            jsr     puts                ; print copyright
+            jsr     puts                ; copyright
             
             ldx     #0
-            ldy     #2
-            jsr     gotoxy              ; move cursor to (0,2)
+            ldy     #3
+            jsr     gotoxy              ; move cursor to (0,3)
             
-            jsr     cursor_on
+            ldx     #.HIBYTE(ram_total)
+            ldy     #.LOBYTE(ram_total)
+            jsr     puts                ; RAM installed message
             
-            ; Display 76543210 on the seven-segment display
-            lda     #$10
-            sta     SSEG_BYTE0
+            jsr     ram_count           ; returns number of RAM pages
             
-            lda     #$32
-            sta     SSEG_BYTE1
+            tax
+            ldy     #$00
+            jsr     itoa                ; convert RAM total to string
             
-            lda     #$54
-            sta     SSEG_BYTE2
+            tay                         ; itoa returns X:A... puts expect X:Y
+            jsr     puts                ; print RAM total
             
-            lda     #$76
-            sta     SSEG_BYTE3
+            ldx     #.HIBYTE(bytes)
+            ldy     #.LOBYTE(bytes)
+            jsr     puts                ; bytes string
             
+            ldx     #0
+            ldy     #5
+            jsr     gotoxy              ; move cursor to (0,5)
+            
+            ldx     #.HIBYTE(ready)
+            ldy     #.LOBYTE(ready)
+            jsr     puts                ; print ready message
+            
+@idle:      jmp     @idle               ; idle
+
+
+;= RAM COUNT ===================================================================
+; Counts the total pages of RAM available. Assumes zero page and stack confirmed
+;
+; Parameters: none
+; Returns:    A = total RAM pages
+;
+; Cycles (jsr->rts): 3426 for 32KB
+
+.CODE
+
+ram_count:  lda     #$02                ; start at $02FF
+            sta     $01
             lda     #$FF
-            sta     SSEG_DIGITS
+            sta     $00                 ; ($00) = current page to test
             
-@done:      jmp     @done
+@loop:      lda     #$AA
+            sta     ($00)               ; store $AA at ($00)
+            lda     ($00)               ; read ($00)
+            cmp     #$AA                ; compare with $AA
+            bne     @total              ; ($00) != $AA?
+            
+            inc     $01                 ; increment the page to be tested
+            lda     $01                 ; load the page count
+            cmp     #.HIBYTE(VRAM)      ; VRAM starts at RAM end
+            bne     @loop               ; page count != VRAM start?
+            
+@total:     lda     $01                 ; A = page count
+            
+            rts
 
 
-;= STRINGS =====================================================================
+;= READ ONLY DATA ==============================================================
 
-bios_msg:   .ASCIIZ "v65C02 BIOS v", VERSION
+.RODATA
+
+bios_ver:   .ASCIIZ "v65C02 BIOS v", VERSION
 copyright:  .ASCIIZ "Copyright (C) 2018 Ryan Clarke"
+ram_total:  .ASCIIZ "RAM installed: "
+bytes:      .ASCIIZ " bytes"
+ready:      .ASCIIZ "Ready."

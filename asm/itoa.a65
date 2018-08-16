@@ -1,0 +1,136 @@
+;===============================================================================
+;Copyright (C) 2018 Ryan Clarke
+;
+;This program is free software (firmware): you can redistribute it and/or modify
+;it under the terms of the GNU General Public License as published by
+;the Free Software Foundation, either version 3 of the License, or
+;(at your option) any later version.
+;
+;This program is distributed in the hope that it will be useful,
+;but WITHOUT ANY WARRANTY; without even the implied warranty of
+;MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;GNU General Public License for more details.
+;
+;You should have received a copy of the GNU General Public License
+;along with this program.  If not, see <http://www.gnu.org/licenses/>.
+;===============================================================================
+
+
+;===============================================================================
+; Program   : v65C02 BIOS
+; File Name : itoa.a65
+; Project   : v65C02 8-bit Computer
+; Author    : Ryan Clarke
+; E-mail    : kj6msg@icloud.com
+;===============================================================================
+; Release History :
+;
+;    Version     | Date          | Description
+;    -------------------------------------------------
+;    0.0         | 08/15/2018    | Initial development
+;===============================================================================
+; Purpose : Integer-to-string conversion routine for the 65C02 BIOS.
+;===============================================================================
+
+
+.PC02
+
+.EXPORT     itoa
+
+
+;= CONVERT INTEGER TO STRING ===================================================
+; Converts a 16-bit integer to a null terminated string.
+;
+; Parameters: X = MSB of integer
+;             Y = LSB of integer
+; Returns:    X = MSB of string
+;             A = LSB of string
+;
+; Cycles (jsr->rts): 195 (0) to 1858 (59999)
+
+.CODE
+
+itoa:       stx     $01
+            sty     $00                 ; $0000 = 16-bit integer
+            
+            ldy     #1                  ; y = 10s place index (start at 10000s)
+            ldx     #0                  ; X = string index
+            stz     $02                 ; $0002 = digit counter
+            
+@loop:      cpx     #$04                ; string index == 4?
+            beq     @last               ; yes, do last 10s place
+            
+@compare:   lda     $01                 ; integer MSB
+            cmp     places, Y           ; compare integer MSB to 10s place MSB
+            bcc     @next               ; integer MSB < 10s place MSB?
+            bne     @subtract           ; integer MSB > 10s place MSB?
+            
+            dey
+            lda     $00                 ; integer LSB
+            cmp     places, Y           ; compare integer LSB to 10s place LSB
+            iny                         ; reset 10s place to MSB
+            bcc     @next               ; integer LSB < 10s place MSB?
+            
+@subtract:  dey                         ; starting at 10s place LSB
+            lda     $00                 ; integer LSB
+            sec                         ; 16-bit subtraction
+            sbc     places, Y
+            sta     $00
+            iny
+            lda     $01
+            sbc     places, Y
+            sta     $01                 ; $0000 = $0000 - 10s place
+            
+            inc     $02                 ; increment digit counter
+            bra     @compare
+                        
+@next:      lda     $02                 ; digit counter
+            clc
+            adc     #$30                ; convert to ASCII
+            sta     int_str, X          ; save in the integer string
+            
+            iny
+            iny                         ; next 10s place MSB
+            inx                         ; next digit
+            stz     $02                 ; reset digit counter
+            
+            bra     @loop
+            
+@last:      lda     $00                 ; 1s place
+            clc
+            adc     #$30                ; convert to ascii
+            sta     int_str, X          ; store last digit
+            inx
+            stz     int_str, X          ; add NULL character
+            
+            ; remove leading zeroes
+            ldy     #0                  ; start at front of integer string
+@leadzero:  lda     #$30                ; ASCII '0'
+            cmp     int_str, Y
+            bne     @done               ; digit != '0'?
+            
+            iny                         ; next digit
+            cpy     #4                  ; leave the last digit alone
+            bcc     @leadzero           ; digit < 4?
+            
+@done:      ldx     #.HIBYTE(int_str)   ; X = MSB of integer string
+            tya                         ; Y = offset to remove leading zeroes
+            clc
+            adc     #.LOBYTE(int_str)   ; A = LSB of integer string + offset
+            
+            rts
+
+
+;= READ ONLY DATA ==============================================================
+
+.RODATA
+
+; ten-thousands, thousands, hundreds, and tens places
+places:     .WORD 10000, 1000, 100, 10
+
+
+;= UNINITIALIZED DATA ==========================================================
+
+.BSS
+
+int_str:    .RES 6                      ; 5 digits plus a NUL terminator
