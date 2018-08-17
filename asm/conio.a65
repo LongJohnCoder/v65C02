@@ -45,7 +45,7 @@
 ; Moves the cursor to a screen position.
 ;
 ; Parameters: X = column
-;             Y = row
+;             A = row
 ; Returns:    none
 ;
 ; Cycles (jsr->rts): 90
@@ -55,7 +55,6 @@
 gotoxy:     stx     $00
             stz     $01                 ; $0000 = column
             
-            tya
             stz     $02                 ; $02:A = row
             
             asl     A
@@ -97,15 +96,18 @@ gotoxy:     stx     $00
 ; Prints a NUL terminated string to the screen. Updates the cursor position
 ; after printing.
 ;
-; Parameters: X = MSB of string address
-;             Y = LSB of string address
+; Parameters: X = &string<15:8>
+;             A = &string<7:0>
 ; Returns:    none
 ;
 ; Cycles (jsr->rts): 89 + (50 * string length)
 
 .CODE
 
-puts:       lda     VGA_CURS_MSB
+puts:       stx     $03
+            sta     $02                 ; ($02) = string address
+            
+            lda     VGA_CURS_MSB
             sta     $01
             lda     VGA_CURS_LSB
             sta     $00                 ; $0000 = 11-bit cursor address
@@ -115,9 +117,6 @@ puts:       lda     VGA_CURS_MSB
             lda     #.HIBYTE(VRAM)      ; retrieve VRAM starting page
             ora     $01                 ; generate proper 16-bit address
             sta     $01                 ; ($00) = 16-bit VRAM address
-            
-            stx     $03
-            sty     $02                 ; ($02) = string address
             
             ldy     #$00                ; Y = character counter
             

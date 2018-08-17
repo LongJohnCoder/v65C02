@@ -41,82 +41,69 @@
 ;= CONVERT INTEGER TO STRING ===================================================
 ; Converts a 16-bit integer to a null terminated string.
 ;
-; Parameters: X = MSB of integer
-;             Y = LSB of integer
-; Returns:    X = MSB of string
-;             A = LSB of string
+; Parameters: X = integer<15:8>
+;             A = integer<7:0>
+; Returns:    X = &string<15:8>
+;             A = &string<7:0>
 ;
-; Cycles (jsr->rts): 195 (0) to 1858 (59999)
+; Cycles (jsr->rts): 296 (0) - 1590 (59999)
 
 .CODE
 
 itoa:       stx     $01
-            sty     $00                 ; $0000 = 16-bit integer
+            sta     $00                 ; $0000 = 16-bit unsigned integer
             
-            ldy     #1                  ; y = 10s place index (start at 10000s)
-            ldx     #0                  ; X = string index
-            stz     $02                 ; $0002 = digit counter
+            ldy     #0                  ; Y = places index (start at 10000s LSB)
+            ldx     #0                  ; X = int_str index (start at 0)
+            stz     $02                 ; $0002 = digit
             
-@loop:      cpx     #$04                ; string index == 4?
-            beq     @last               ; yes, do last 10s place
-            
-@compare:   lda     $01                 ; integer MSB
-            cmp     places, Y           ; compare integer MSB to 10s place MSB
-            bcc     @next               ; integer MSB < 10s place MSB?
-            bne     @subtract           ; integer MSB > 10s place MSB?
-            
-            dey
-            lda     $00                 ; integer LSB
-            cmp     places, Y           ; compare integer LSB to 10s place LSB
-            iny                         ; reset 10s place to MSB
-            bcc     @next               ; integer LSB < 10s place MSB?
-            
-@subtract:  dey                         ; starting at 10s place LSB
-            lda     $00                 ; integer LSB
+@subtract:  lda     $00                 ; A = integer<7:0>
             sec                         ; 16-bit subtraction
-            sbc     places, Y
-            sta     $00
-            iny
-            lda     $01
-            sbc     places, Y
-            sta     $01                 ; $0000 = $0000 - 10s place
+            sbc     places, Y           ; A = integer<7:0> - place<7:0>
+            sta     $03                 ; save result
+            lda     $01                 ; A = integer<15:8>
+            iny                         ; Y++
+            sbc     places, Y           ; A = integer<15:8> - place<15:8>
+            bmi     @next               ; $0000 - places[Y] < 0?
             
-            inc     $02                 ; increment digit counter
-            bra     @compare
+            sta     $01                 ; integer<15:8> -= place<15:8>
+            lda     $03
+            sta     $00                 ; integer<7:0> -= place<7:0>
+            
+            inc     $02                 ; digit++
+            dey                         ; Y-- (back to place LSB)
+            bra     @subtract
                         
-@next:      lda     $02                 ; digit counter
+@next:      lda     $02                 ; A = digit
             clc
-            adc     #$30                ; convert to ASCII
-            sta     int_str, X          ; save in the integer string
+            adc     #$30                ; A = digit + $30 ($30 = ASCII '0')
+            sta     int_str, X          ; int_str[X] = digit + $30
             
-            iny
-            iny                         ; next 10s place MSB
-            inx                         ; next digit
-            stz     $02                 ; reset digit counter
+            stz     $02                 ; digit = 0
+            iny                         ; Y++ (next places LSB)
+            inx                         ; X++ (next int_str digit)
+            cpx     #4
+            bcc     @subtract           ; X < 4?
             
-            bra     @loop
-            
-@last:      lda     $00                 ; 1s place
+@ones:      lda     $00                 ; A = 1s digit
             clc
-            adc     #$30                ; convert to ascii
-            sta     int_str, X          ; store last digit
-            inx
-            stz     int_str, X          ; add NULL character
+            adc     #$30                ; A = 1s digit + $30 ($30 = ASCII '0')
+            sta     int_str, X          ; int_str[4] = 1s digit + $30
             
-            ; remove leading zeroes
-            ldy     #0                  ; start at front of integer string
-@leadzero:  lda     #$30                ; ASCII '0'
-            cmp     int_str, Y
-            bne     @done               ; digit != '0'?
+            ldx     #0                  ; Y = 0
+@zeros:     lda     int_str, X          ; A = int_str[X]
+            cmp     #$30                ; ASCII '0'
+            bne     @done               ; int_str[X] != '0'?
             
-            iny                         ; next digit
-            cpy     #4                  ; leave the last digit alone
-            bcc     @leadzero           ; digit < 4?
-            
-@done:      ldx     #.HIBYTE(int_str)   ; X = MSB of integer string
-            tya                         ; Y = offset to remove leading zeroes
+            inx                         ; X++
+            cpx     #4
+            bcc     @zeros              ; X < 4?
+
+@done:      stz     int_str+5           ; int_str[5] = 0 (NUL terminator)
+            txa                         ; A = offset into integer string
             clc
-            adc     #.LOBYTE(int_str)   ; A = LSB of integer string + offset
+            adc     #.LOBYTE(int_str)   ; A = &integer<7:0> + offset
+            ldx     #.HIBYTE(int_str)   ; X = &integer<15:8>
             
             rts
 

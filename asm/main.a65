@@ -85,44 +85,61 @@ main:       cli                         ; enable interrupts
             jsr     vga_init            ; initialize the VGA
             
             ldx     #.HIBYTE(bios_ver)
-            ldy     #.LOBYTE(bios_ver)
+            lda     #.LOBYTE(bios_ver)
             jsr     puts                ; BIOS header
             
             ldx     #0
-            ldy     #1
+            lda     #1
             jsr     gotoxy              ; move cursor to (0,1)
             
             ldx     #.HIBYTE(copyright)
-            ldy     #.LOBYTE(copyright)
+            lda     #.LOBYTE(copyright)
             jsr     puts                ; copyright
             
             ldx     #0
-            ldy     #3
+            lda     #3
             jsr     gotoxy              ; move cursor to (0,3)
             
             ldx     #.HIBYTE(ram_total)
-            ldy     #.LOBYTE(ram_total)
+            lda     #.LOBYTE(ram_total)
             jsr     puts                ; RAM installed message
             
             jsr     ram_count           ; returns number of RAM pages
             
             tax
-            ldy     #$00
+            lda     #$00
             jsr     itoa                ; convert RAM total to string
             
-            tay                         ; itoa returns X:A... puts expect X:Y
             jsr     puts                ; print RAM total
             
             ldx     #.HIBYTE(bytes)
-            ldy     #.LOBYTE(bytes)
+            lda     #.LOBYTE(bytes)
             jsr     puts                ; bytes string
             
             ldx     #0
-            ldy     #5
-            jsr     gotoxy              ; move cursor to (0,5)
+            lda     #4
+            jsr     gotoxy              ; move cursor to (0,4)
+            
+            ldx     #.HIBYTE(ram_avail)
+            lda     #.LOBYTE(ram_avail)
+            jsr     puts                ; RAM available message
+            
+            ldx     #$7D
+            lda     #$00
+            jsr     itoa
+            
+            jsr     puts
+            
+            ldx     #.HIBYTE(bytes)
+            lda     #.LOBYTE(bytes)
+            jsr     puts                ; bytes string
+            
+            ldx     #0
+            lda     #6
+            jsr     gotoxy              ; move cursor to (0,6)
             
             ldx     #.HIBYTE(ready)
-            ldy     #.LOBYTE(ready)
+            lda     #.LOBYTE(ready)
             jsr     puts                ; print ready message
             
 @idle:      jmp     @idle               ; idle
@@ -166,5 +183,6 @@ ram_count:  lda     #$02                ; start at $02FF
 bios_ver:   .ASCIIZ "v65C02 BIOS v", VERSION
 copyright:  .ASCIIZ "Copyright (C) 2018 Ryan Clarke"
 ram_total:  .ASCIIZ "RAM installed: "
+ram_avail:  .ASCIIZ "RAM available: "
 bytes:      .ASCIIZ " bytes"
 ready:      .ASCIIZ "Ready."
