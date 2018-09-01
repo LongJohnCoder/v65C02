@@ -68,9 +68,9 @@ module v65C02_Top
     
     ClockGen ClockGen
         (
-        .clk_100M_i  (CLK100MHZ),
-        .clk_28_32M_o(clk_pixel),
-        .clk_7_08M_o (clk_cpu)
+        .clk_100M_i   (CLK100MHZ),
+        .clk_28_322M_o(clk_pixel),
+        .clk_50M_o    (clk_cpu)
         );
     
     
