@@ -37,10 +37,13 @@
 
 .INCLUDE    "conio.inc"
 .INCLUDE    "memory.inc"
+.INCLUDE    "uart.inc"
 
 .IMPORT     gotoxy
 .IMPORT     itoa
 .IMPORT     puts
+.IMPORT     uart_getc
+.IMPORT     uart_putc
 .IMPORT     vga_init
 
 .EXPORT     start
@@ -83,6 +86,11 @@ start:      lda     #$AA                ; verify RAM by checking zero page
 main:       cli                         ; enable interrupts
             
             jsr     vga_init            ; initialize the VGA
+            
+            lda     #.HIBYTE(B1562500)
+            sta     UART_BRGH
+            lda     #.LOBYTE(B1562500)
+            sta     UART_BRGL           ; Set UART to 1.5625M baud
             
             ldx     #.HIBYTE(bios_ver)
             lda     #.LOBYTE(bios_ver)
@@ -138,9 +146,21 @@ main:       cli                         ; enable interrupts
             lda     #6
             jsr     gotoxy              ; move cursor to (0,6)
             
+            ldx     #.HIBYTE(uart)
+            lda     #.LOBYTE(uart)
+            jsr     puts                ; UART string
+            
+            ldx     #0
+            lda     #8
+            jsr     gotoxy              ; move cursor to (0,8)
+            
             ldx     #.HIBYTE(ready)
             lda     #.LOBYTE(ready)
             jsr     puts                ; print ready message
+            
+@loop:      jsr     uart_getc           ; UART loopback
+            jsr     uart_putc
+            bra     @loop
             
 @idle:      jmp     @idle               ; idle
 
@@ -185,4 +205,5 @@ copyright:  .ASCIIZ "Copyright (C) 2018 Ryan Clarke"
 ram_total:  .ASCIIZ "RAM installed: "
 ram_avail:  .ASCIIZ "RAM available: "
 bytes:      .ASCIIZ " bytes"
+uart:       .ASCIIZ "UART: 1,562,500 bps / 8-N-1"
 ready:      .ASCIIZ "Ready."

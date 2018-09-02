@@ -27,31 +27,35 @@
 ;
 ;    Version     | Date          | Description
 ;    -------------------------------------------------
-;    0.0         | 08/07/2018    | Initial development
+;    0.0         | 09/01/2018    | Initial development
 ;===============================================================================
-; Purpose : Include file outlining memory map for the v65C02 8-bit Computer.
+; Purpose : Baud rate generator values for the v65C02 8-bit Computer.
 ;===============================================================================
 
 
 .PC02
 
-ZP           = $0000
-STACK        = $0100
-BIOS_RAM     = $0200
-PROG_RAM     = $0300
-VRAM         = $8000
-VGA_STATUS   = $9000
-VGA_CURS_LSB = $9001
-VGA_CURS_MSB = $9002
-SSEG_DIGITS  = $9100
-SSEG_DP      = $9101
-SSEG_BYTE0   = $9102
-SSEG_BYTE1   = $9103
-SSEG_BYTE2   = $9104
-SSEG_BYTE3   = $9105
-UART_STATUS  = $9200
-UART_BRGL    = $9201
-UART_BRGH    = $9202
-UART_TXREG   = $9203
-UART_RXREG   = $9204
-BIOS_ROM     = $C000
+B110     = 28408
+B300     = 10416
+B600     = 5207
+B1200    = 2603
+B2400    = 1301
+B4800    = 650
+B9600    = 325
+B14400   = 216
+B19200   = 162
+B28800   = 108
+B38400   = 80
+B56000   = 55
+B57600   = 53
+B115200  = 26
+B128000  = 23
+B230400  = 13
+B256000  = 11
+B460800  = 6
+B500000  = 5
+B512000  = 5
+B921600  = 2
+B1000000 = 2
+B1024000 = 2
+B1562500 = 1

@@ -1,0 +1,114 @@
+;===============================================================================
+;Copyright (C) 2018 Ryan Clarke
+;
+;This program is free software (firmware): you can redistribute it and/or modify
+;it under the terms of the GNU General Public License as published by
+;the Free Software Foundation, either version 3 of the License, or
+;(at your option) any later version.
+;
+;This program is distributed in the hope that it will be useful,
+;but WITHOUT ANY WARRANTY; without even the implied warranty of
+;MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;GNU General Public License for more details.
+;
+;You should have received a copy of the GNU General Public License
+;along with this program.  If not, see <http://www.gnu.org/licenses/>.
+;===============================================================================
+
+
+;===============================================================================
+; Program   : v65C02 BIOS
+; File Name : uart.a65
+; Project   : v65C02 8-bit Computer
+; Author    : Ryan Clarke
+; E-mail    : kj6msg@icloud.com
+;===============================================================================
+; Release History :
+;
+;    Version     | Date          | Description
+;    -------------------------------------------------
+;    0.0         | 09/01/2018    | Initial development
+;===============================================================================
+; Purpose : UART routines for the v65C02 BIOS.
+;===============================================================================
+
+
+.PC02
+
+.INCLUDE    "memory.inc"
+
+.EXPORT     uart_getc
+.EXPORT     uart_putc
+.EXPORT     uart_puts
+
+
+;=UART GET CHARACTER ===========================================================
+; Gets a character from the UART.
+;
+; Parameters: none
+; Returns:    A = character
+;
+; Cycles (jsr->rts): 
+
+.CODE
+
+uart_getc:  lda     UART_STATUS     ; read UART STATUS register
+            bit     #$02            ; test RXFULL flag
+            beq     uart_getc       ; RXFULL == 0?
+            
+            lda     UART_RXREG      ; read character
+            
+            rts
+
+
+;= UART PRINT CHARACTER ========================================================
+; Prints a character to the UART
+;
+; Parameters: A = character
+; Returns:    none
+;
+; Cycles (jsr->rts):
+
+.CODE
+
+uart_putc:  pha
+            
+@poll:      lda     UART_STATUS
+            bit     #$01
+            bne     @poll
+            
+            pla
+            sta     UART_TXREG
+            
+            rts
+
+
+;= UART PRINT STRING ===========================================================
+; Prints a NULL terminated string to the UART.
+;
+; Parameters: X = &string<15:8>
+;             A = &string<7:0>
+; Returns:    none
+;
+; Cycles (jsr->rts): 29 + (25 * string length) [TX not busy]
+
+.CODE
+
+uart_puts:  stx     $01
+            sta     $00             ; ($00) = string address
+            
+            ldy     #0              ; Y = character counter
+            
+@poll:      lda     UART_STATUS     ; read UART STATUS register
+            bit     #$01            ; test the TXBUSY flag
+            bne     @poll           ; TXBUSY == 1?
+            
+            lda     ($00), Y        ; A = string character
+            beq     @done           ; character = NUL?
+            
+            sta     UART_TXREG      ; write character to UART
+            
+            iny                     ; next character
+            bra     @poll           ; keep getting characters
+            
+@done:      rts

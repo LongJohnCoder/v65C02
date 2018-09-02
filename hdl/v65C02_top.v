@@ -20,7 +20,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 /*******************************************************************************
 Module Name : v65C02_Top
-Dependences : ClockGen, CPUReset, cpu_65c02, RAM_32K8, ROM_16K8, VGAController
+Dependences : ClockGen, CPUReset, cpu_65c02, RAM_32K8, ROM_16K8, VGAController,
+            : SevenSegmentController, UARTController
 File Name   : v65C02_top.v
 Project     : v65C02 8-bit Computer
 Author      : Ryan Clarke
@@ -29,8 +30,11 @@ E-mail      : kj6msg@icloud.com
 Release History :
 
     Version     | Date          | Description
-    --------------------------------------------
+    ----------------------------------------------------------
     0.0         | 07/25/2018    | Initial design
+    0.1         | 08/12/2018    | Seven-segment display added.
+    0.2         | 08/31/2018    | Adjusted CPU clock to 50MHz.
+    0.3         | 09/01/2018    | UART added.
 ================================================================================
 Purpose : Top module for the v65C02 8-bit Computer.
 *******************************************************************************/
@@ -57,7 +61,11 @@ module v65C02_Top
     output wire       CE,
     output wire       CF,
     output wire       CG,
-    output wire       DP
+    output wire       DP,
+    
+    // UART
+    input  wire       UART_TXD_IN,      // input from serial port
+    output wire       UART_RXD_OUT      // output to serial port
     );
     
     
@@ -69,8 +77,8 @@ module v65C02_Top
     ClockGen ClockGen
         (
         .clk_100M_i   (CLK100MHZ),
-        .clk_28_322M_o(clk_pixel),
-        .clk_50M_o    (clk_cpu)
+        .clk_28_322M_o(clk_pixel),      // VGA pixel clock 28.322MHz
+        .clk_50M_o    (clk_cpu)         // CPU clock 50MHz
         );
     
     
@@ -101,7 +109,7 @@ module v65C02_Top
     wire [15:0] cpu_addr;               // v65C02 16-bit address bus
     reg  [7:0]  cpu_din;                // v65C02 8-bit data input
     wire [7:0]  cpu_dout;               // v65C02 8-bit data output
-    wire        cpu_we;                 // v65C02 data write enable
+    wire        cpu_we;                 // v65C02 write enable
     
     cpu_65c02 CPU
         (
@@ -119,12 +127,12 @@ module v65C02_Top
     
 /* RAM ************************************************************************/
     
-    localparam RAM_ADDR = 8'b0XXX_XXXX; // RAM = $0000 -> $7FFF
+    localparam RAM_ADDRH = 8'b0XXX_XXXX;    // RAM = $0000 -> $7FFF
     
-    wire       ram_en;                  // RAM enable
-    wire [7:0] ram_dout;                // RAM 8-bit data out
+    wire       ram_en;                      // RAM select
+    wire [7:0] ram_dout;                    // RAM 8-bit data out
     
-    assign ram_en  = ~cpu_addr[15];
+    assign ram_en  = (~cpu_addr[15]);
     
     RAM_32K8 RAM
         (
@@ -139,12 +147,12 @@ module v65C02_Top
     
 /* ROM BIOS *******************************************************************/
     
-    localparam BIOS_ADDR = 8'b11XX_XXXX;    // BIOS = $C000 -> $FFFF
+    localparam BIOS_ADDRH = 8'b11XX_XXXX;   // BIOS = $C000 -> $FFFF
     
-    wire       bios_en;                     // BIOS enable
+    wire       bios_en;                     // BIOS select
     wire [7:0] bios_dout;                   // BIOS 8-bit data out
     
-    assign bios_en = & cpu_addr[15:14];
+    assign bios_en = (& cpu_addr[15:14]);
     
     ROM_16K8 BIOS
         (
@@ -157,18 +165,18 @@ module v65C02_Top
     
 /* VGA CONTROLLER *************************************************************/
     
-    localparam VRAM_ADDR   = 8'b1000_XXXX;  // VRAM = $8000 -> $8FFF
-    localparam VGA_CONTROL = 8'b1001_0000;  // VGA control bus = $9000 -> $90FF
+    localparam VRAM_ADDRH  = 8'b1000_XXXX;  // VRAM = $8000 -> $8FFF
+    localparam VGA_CONTROL = 8'h90;         // VGA control bus = $9000 -> $90FF
     
-    wire        vga_ctrl_en;            // VGA control bus enable
-    wire        vga_vram_en;            // video RAM enable
-    wire [7:0]  vga_dout;               // 8-bit data output
-    wire [11:0] vga_rgb;                // RGB444 output
-    wire        vga_hsync;              // horizontal sync
-    wire        vga_vsync;              // vertical sync
+    wire        vga_ctrl_en;                // VGA control bus select
+    wire        vga_vram_en;                // video RAM select
+    wire [7:0]  vga_dout;                   // 8-bit data output
+    wire [11:0] vga_rgb;                    // 12-bit RGB444 output
+    wire        vga_hsync;                  // horizontal sync
+    wire        vga_vsync;                  // vertical sync
     
     assign vga_ctrl_en = (cpu_addr[15:8] == VGA_CONTROL);
-    assign vga_vram_en = (cpu_addr[15:12] == VRAM_ADDR[7:4]);
+    assign vga_vram_en = (cpu_addr[15:12] == VRAM_ADDRH[7:4]);
     
     VGAController VGAController
         (
@@ -193,11 +201,11 @@ module v65C02_Top
     
 /* SEVEN-SEGMENT CONTROLLER ***************************************************/
     
-    localparam SSEG_CONTROL = 8'b1001_0001;     // SSEG ctrl bus = $9100->$91FF
+    localparam SSEG_CONTROL = 8'h91;        // SSEG control bus = $9100->$91FF
     
-    wire sseg_en;                       // SSEG control bus enable
-    wire [7:0] sseg_an_n;               // anode (active low)
-    wire [7:0] sseg_sseg_n;             // seven-segment digit (active low)
+    wire       sseg_en;                     // SSEG control bus select
+    wire [7:0] sseg_an_n;                   // anode (active low)
+    wire [7:0] sseg_sseg_n;                 // seven-segment digit (active low)
     
     assign sseg_en = (cpu_addr[15:8] == SSEG_CONTROL);
     
@@ -217,11 +225,35 @@ module v65C02_Top
     assign {DP, CG, CF, CE, CD, CC, CB, CA} = sseg_sseg_n;
     
     
+/* UART ***********************************************************************/
+    
+    localparam UART_CONTROL = 8'h92;        // UART control bus = $9200->$92FF
+    
+    wire       uart_en;                     // UART control bus select
+    wire [7:0] uart_dout;                   // 8-bit data output
+    wire       uart_tx;                     // serial data output
+    
+    assign uart_en = (cpu_addr[15:8] == UART_CONTROL);
+    
+    UARTController UARTController
+        (
+        .clk_i (clk_cpu),
+        .en_i  (uart_en),
+        .we_i  (cpu_we),
+        .addr_i(cpu_addr[7:0]),
+        .din_i (cpu_dout),
+        .dout_o(uart_dout),
+        .rx_i  (UART_TXD_IN),
+        .tx_o  (uart_tx)
+        );
+    
+    // output logic
+    assign UART_RXD_OUT = uart_tx;
+    
+        
 /* MEMORY DECODING LOGIC ******************************************************/
     
-    localparam NOP = 8'h00;             // 65C02 NOP opcode
-    
-    reg [7:0] cpu_addr_p1_msb_reg;      // v65C02 address MSB pipeline
+    reg [7:0] cpu_addr_p1_msb_reg;          // v65C02 address MSB pipeline
     
     // v65C02 expects valid data after one-clock cycle
     initial cpu_addr_p1_msb_reg = 8'h00;
@@ -231,11 +263,12 @@ module v65C02_Top
     // v65C02 data input multiplexer
     always @*
         casex(cpu_addr_p1_msb_reg)
-            RAM_ADDR:    cpu_din = ram_dout;
-            VRAM_ADDR:   cpu_din = vga_dout;
-            VGA_CONTROL: cpu_din = vga_dout;
-            BIOS_ADDR:   cpu_din = bios_dout;
-            default:     cpu_din = NOP;
+            RAM_ADDRH:    cpu_din = ram_dout;
+            VRAM_ADDRH:   cpu_din = vga_dout;
+            VGA_CONTROL:  cpu_din = vga_dout;
+            UART_CONTROL: cpu_din = uart_dout;
+            BIOS_ADDRH:   cpu_din = bios_dout;
+            default:      cpu_din = 8'h00;
         endcase
     
 endmodule
