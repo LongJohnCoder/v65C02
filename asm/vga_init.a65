@@ -81,8 +81,8 @@ vga_init:   stz     VGA_STATUS          ; disable display, disable cursor
             cmp     #.HIBYTE(VRAM_END)  ; compare VRAM addr w/ VRAM end (MSBs)
             bne     @loop               ; VRAM address MSB != $90?
             
-            stz     VGA_CURS_MSB        ; set cursor to (0,0)
-            stz     VGA_CURS_LSB
+            stz     VGA_CURSH           ; set cursor to (0,0)
+            stz     VGA_CURSL
             
             lda     #EN                 ; EN = 1
             sta     VGA_STATUS          ; enable display, disable cursor

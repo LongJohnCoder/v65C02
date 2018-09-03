@@ -84,10 +84,10 @@ gotoxy:     stx     $00
             ; $02:A = row << 6
             clc
             adc     $00
-            sta     VGA_CURS_LSB
+            sta     VGA_CURSL
             lda     $01
             adc     $02
-            sta     VGA_CURS_MSB
+            sta     VGA_CURSH
             
             rts
 
@@ -107,9 +107,9 @@ gotoxy:     stx     $00
 puts:       stx     $03
             sta     $02                 ; ($02) = string address
             
-            lda     VGA_CURS_MSB
+            lda     VGA_CURSH
             sta     $01
-            lda     VGA_CURS_LSB
+            lda     VGA_CURSL
             sta     $00                 ; $0000 = 11-bit cursor address
             
             asl     $00                 ; 12-bit VRAM addr = cursor address << 1
@@ -151,8 +151,8 @@ puts:       stx     $03
             ror     $00                 ; $0000 = new 11-bit cursor address
             
             lda     $01
-            sta     VGA_CURS_MSB
+            sta     VGA_CURSH
             lda     $00
-            sta     VGA_CURS_LSB        ; cursor address = $0000
+            sta     VGA_CURSL           ; cursor address = $0000
             
             rts
