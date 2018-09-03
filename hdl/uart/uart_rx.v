@@ -41,7 +41,7 @@ module UART_RX
     input  wire       din_i,            // 1-bit serial data input
     output wire [7:0] dout_o,           // 8-bit data output
     
-    output wire       done_stb_o        // new received byte strobe
+    output reg        done_stb_o        // new received byte strobe
     );
     
     
@@ -67,10 +67,10 @@ module UART_RX
     
 /* STATE MACHINE **************************************************************/
     
-    localparam S_IDLE = 2'b00,
-               S_SYNC = 2'b01,
-               S_DATA = 2'b10,
-               S_DONE = 2'b11;
+    localparam S_IDLE  = 2'b00,
+               S_START = 2'b01,
+               S_DATA  = 2'b10,
+               S_STOP  = 2'b11;
     
     localparam B_START = 1'b0;
     
@@ -84,16 +84,17 @@ module UART_RX
     always @* begin
         brg_count_ns = brg_count_reg;
         bit_count_ns = bit_count_reg;
+        done_stb_o   = 1'b0;
         state_ns     = state_reg;
         
         case(state_reg)
             S_IDLE:
                 if(din_i == B_START) begin
                     brg_count_ns = 4'h0;
-                    state_ns     = S_SYNC;
+                    state_ns     = S_START;
                 end
             
-            S_SYNC:
+            S_START:
                 if(brg_stb_i) begin
                     if(brg_count_reg == 4'h7) begin
                         brg_count_ns = 4'h0;
@@ -111,7 +112,7 @@ module UART_RX
                         brg_count_ns = 4'h0;
                         
                         if(bit_count_reg == 4'h7)
-                            state_ns = S_DONE;
+                            state_ns = S_STOP;
                         else
                             bit_count_ns = bit_count_reg + 4'h1;
                     end
@@ -119,8 +120,16 @@ module UART_RX
                         brg_count_ns = brg_count_reg + 4'h1;
                     end
             
-            S_DONE:
-                state_ns = S_IDLE;
+            S_STOP:
+                if(brg_stb_i) begin
+                    if(brg_count_reg == 4'hF) begin
+                        done_stb_o = 1'b1;
+                        state_ns   = S_IDLE;
+                    end
+                    else begin
+                        brg_count_ns = brg_count_reg + 4'h1;
+                    end
+                end
             
             default:
                 state_ns = S_IDLE;
@@ -147,20 +156,5 @@ module UART_RX
     
     // output logic
     assign dout_o = rxsr_reg;
-    
-
-/* NEW RECEIVED BYTE **********************************************************/
-    
-    reg done_stb_ff;
-    
-    initial done_stb_ff = 1'b0;
-    always @(posedge clk_i)
-        if(state_reg == S_DONE)
-            done_stb_ff <= #1 1'b1;
-        else
-            done_stb_ff <= #1 1'b0;
-    
-    // output logic
-    assign done_stb_o = done_stb_ff;
     
 endmodule
