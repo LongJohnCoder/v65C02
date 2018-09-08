@@ -16,108 +16,119 @@
 ;===============================================================================
 
 
-;===============================================================================
-; Program   : v65C02 BIOS
-; File Name : itoa.a65
-; Project   : v65C02 8-bit Computer
-; Author    : Ryan Clarke
-; E-mail    : kj6msg@icloud.com
-;===============================================================================
-; Release History :
-;
-;    Version     | Date          | Description
-;    -------------------------------------------------
-;    0.0         | 08/15/2018    | Initial development
-;===============================================================================
-; Purpose : Integer-to-string conversion routine for the 65C02 BIOS.
-;===============================================================================
-
-
 .PC02
 
-.EXPORT     itoa
+.INCLUDE "memory.inc"
+
+.EXPORT itoa
 
 
-;= CONVERT INTEGER TO STRING ===================================================
-; Converts a 16-bit integer to a null terminated string.
+;= UNSIGNED 16-BIT INTEGER TO STRING ===========================================
+; Converts an unsigned 16-bit integer to a null-terminated string using the
+; double dabble algorithm to first convert to BCD and then a conversion to
+; ACII.
 ;
-; Parameters: X = integer<15:8>
-;             A = integer<7:0>
+; Parameters: X = &integer<15:8>
+;             A = &integer<7:0>
 ; Returns:    X = &string<15:8>
 ;             A = &string<7:0>
 ;
-; Cycles (jsr->rts): 296 (0) - 1590 (59999)
+; Cycles (jsr->rts): 2067-3188
 
 .CODE
 
-itoa:       stx     $01
-            sta     $00                 ; $0000 = 16-bit unsigned integer
+itoa:       stz     string                  ; set BCD bytes to 0
+            stz     string+1
+            stz     string+2
+            stx     string+3                ; integer bytes furthest to the
+            sta     string+4                ; right
             
-            ldy     #0                  ; Y = places index (start at 10000s LSB)
-            ldx     #0                  ; X = int_str index (start at 0)
-            stz     $02                 ; $0002 = digit
+            ; double-dabble to convert binary to BCD
+            ldy     #16                     ; Y = 16 bits, 16 shifts
+@dabble:    ldx     #2                      ; X = BCD packed byte counter
+@lonibble:  lda     string, X
+            and     #$0F                    ; low nibble first
+            cmp     #$05
+            bcc     @hinibble               ; low nibble < 5?
             
-@subtract:  lda     $00                 ; A = integer<7:0>
-            sec                         ; 16-bit subtraction
-            sbc     places, Y           ; A = integer<7:0> - place<7:0>
-            sta     $03                 ; save result
-            lda     $01                 ; A = integer<15:8>
-            iny                         ; Y++
-            sbc     places, Y           ; A = integer<15:8> - place<15:8>
-            bmi     @next               ; $0000 - places[Y] < 0?
-            
-            sta     $01                 ; integer<15:8> -= place<15:8>
-            lda     $03
-            sta     $00                 ; integer<7:0> -= place<7:0>
-            
-            inc     $02                 ; digit++
-            dey                         ; Y-- (back to place LSB)
-            bra     @subtract
-                        
-@next:      lda     $02                 ; A = digit
+            lda     string, X               ; low nibble is greater than 4
             clc
-            adc     #$30                ; A = digit + $30 ($30 = ASCII '0')
-            sta     int_str, X          ; int_str[X] = digit + $30
+            adc     #$03                    ; add three to nibble
+            sta     string, X               ; save back to BCD byte
             
-            stz     $02                 ; digit = 0
-            iny                         ; Y++ (next places LSB)
-            inx                         ; X++ (next int_str digit)
-            cpx     #4
-            bcc     @subtract           ; X < 4?
+@hinibble:  lda     string, X
+            and     #$F0                    ; high nibble
+            cmp     #$50
+            bcc     @next                   ; high nibble < 5?
             
-@ones:      lda     $00                 ; A = 1s digit
+            lda     string, X               ; high nibble is greater than 4
             clc
-            adc     #$30                ; A = 1s digit + $30 ($30 = ASCII '0')
-            sta     int_str, X          ; int_str[4] = 1s digit + $30
+            adc     #$30                    ; add three to nibble
+            sta     string, X               ; save back to BCD byte
             
-            ldx     #0                  ; Y = 0
-@zeros:     lda     int_str, X          ; A = int_str[X]
-            cmp     #$30                ; ASCII '0'
-            bne     @done               ; int_str[X] != '0'?
-            
-            inx                         ; X++
-            cpx     #4
-            bcc     @zeros              ; X < 4?
+@next:      dex                             ; nexy BCD packed byte
+            bpl     @lonibble               ; X < 0?
 
-@done:      stz     int_str+5           ; int_str[5] = 0 (NUL terminator)
-            txa                         ; A = offset into integer string
-            clc
-            adc     #.LOBYTE(int_str)   ; A = &integer<7:0> + offset
-            ldx     #.HIBYTE(int_str)   ; X = &integer<15:8>
+            asl     string+4                ; 5 byte left shift
+            rol     string+3
+            rol     string+2
+            rol     string+1
+            rol     string
+            
+            dey                             ; shift counter--
+            bne     @dabble                 ; Y > 0?
+            
+            ; convert BCD to ASCII
+            ldx     #2                      ; X = BCD packed byte counter
+            ldy     #4                      ; Y = null-terminated string counter
+@toascii:   lda     string, X               ; load BCD byte
+            and     #$0F                    ; low nibble first
+            ora     #'0'                    ; map 0-9 to "0"-"9"
+            sta     string, Y               ; store ASCII value
+            
+            dey                             ; next string position
+            lda     string, X               ; load BCD byte
+            lsr     A                       ; high nibble shift
+            lsr     A
+            lsr     A
+            lsr     A
+            ora     #'0'                    ; map 0-9 to "0"-"9"
+            sta     string, Y               ; store ASCII value
+            
+            dey                             ; next string position
+            dex                             ; next BCD byte
+            bne     @toascii                ; byte > 0?
+            
+            lda     string                  ; last BCD byte (low nibble only)
+            ora     #'0'                    ; map first digit to "0"-"9"
+            sta     string                  ; store ASCII value
+            
+            stz     string+5                ; null terminator
+            
+            ; remove leading zeros
+            lda     #.HIBYTE(string)
+            sta     $01
+            lda     #.LOBYTE(string)
+            sta     $00                     ; ($00) = &string
+            
+            ldx     #4                      ; check the first 4 digits
+@zeros:     lda     ($00)                   ; load ASCII digit
+            cmp     #'0'
+            bne     @done                   ; ASCII digit == '0'?
+            
+            inc     $00                     ; next ASCII digit
+            dex                             ; digit counter--
+            bne     @zeros                  ; digit counter > 0?
+            
+@done:      ldx     $01                     ; return value = &string
+            lda     $00
             
             rts
-
-
-;= READ ONLY DATA ==============================================================
-
-.RODATA
-
-; ten-thousands, thousands, hundreds, and tens places
-places:     .WORD 10000, 1000, 100, 10
 
 
 ;= UNINITIALIZED DATA ==========================================================
 
 .BSS
 
-int_str:    .RES 6                      ; 5 digits plus a NUL terminator
+string:     .RES 6          ; doubles as BCD storage and ASCII string
+    
