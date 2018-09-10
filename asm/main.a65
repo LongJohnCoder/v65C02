@@ -40,10 +40,10 @@
 .INCLUDE    "uart.inc"
 
 .IMPORT     gotoxy
-.IMPORT     itoa
+.IMPORT     monitor
 .IMPORT     puts
 .IMPORT     uart_getc
-.IMPORT     uart_putc
+.IMPORT     u16tod
 .IMPORT     vga_init
 
 .EXPORT     start
@@ -76,7 +76,7 @@ start:      lda     #$AA                ; verify RAM by checking zero page
             lda     #$F3
             sta     SSEG_DIGITS         ; display "C0DE 00" on SSEG
             
-@halt:      jmp     @halt               ; halt, we can't do anything without RAM
+@halt:      bra     @halt               ; halt, we can't do anything without RAM
             
             
 ;= BIOS MAIN PROGRAM ===========================================================
@@ -87,10 +87,10 @@ main:       cli                         ; enable interrupts
             
             jsr     vga_init            ; initialize the VGA
             
-            lda     #.HIBYTE(B1562500)
+            lda     #.HIBYTE(B115200)
             sta     UART_BRGH
-            lda     #.LOBYTE(B1562500)
-            sta     UART_BRGL           ; Set UART to 1.5625M baud
+            lda     #.LOBYTE(B115200)
+            sta     UART_BRGL           ; Initialize UART to 115200 baud
             
             ldx     #.HIBYTE(bios_ver)
             lda     #.LOBYTE(bios_ver)
@@ -108,16 +108,14 @@ main:       cli                         ; enable interrupts
             lda     #3
             jsr     gotoxy              ; move cursor to (0,3)
             
-            ldx     #.HIBYTE(ram_total)
-            lda     #.LOBYTE(ram_total)
-            jsr     puts                ; RAM installed message
+            ldx     #.HIBYTE(ram)
+            lda     #.LOBYTE(ram)
+            jsr     puts                ; RAM message
             
             jsr     ram_count           ; returns number of RAM pages
-            
-            tax
+            tax                         ; convert pages to bytes
             lda     #$00
-            jsr     itoa                ; convert RAM total to string
-            
+            jsr     u16tod              ; convert RAM total to decimal string
             jsr     puts                ; print RAM total
             
             ldx     #.HIBYTE(bytes)
@@ -128,41 +126,21 @@ main:       cli                         ; enable interrupts
             lda     #4
             jsr     gotoxy              ; move cursor to (0,4)
             
-            ldx     #.HIBYTE(ram_avail)
-            lda     #.LOBYTE(ram_avail)
-            jsr     puts                ; RAM available message
-            
-            ldx     #$7D
-            lda     #$00
-            jsr     itoa
-            
-            jsr     puts
-            
-            ldx     #.HIBYTE(bytes)
-            lda     #.LOBYTE(bytes)
-            jsr     puts                ; bytes string
-            
-            ldx     #0
-            lda     #6
-            jsr     gotoxy              ; move cursor to (0,6)
-            
             ldx     #.HIBYTE(uart)
             lda     #.LOBYTE(uart)
             jsr     puts                ; UART string
             
             ldx     #0
-            lda     #8
-            jsr     gotoxy              ; move cursor to (0,8)
+            lda     #6
+            jsr     gotoxy              ; move cursor to (0,6)
             
             ldx     #.HIBYTE(ready)
             lda     #.LOBYTE(ready)
             jsr     puts                ; print ready message
             
-@loop:      jsr     uart_getc           ; UART loopback
-            jsr     uart_putc
-            bra     @loop
+            jsr     monitor             ; ROM monitor program
             
-@idle:      jmp     @idle               ; idle
+@idle:      bra     @idle               ; idle
 
 
 ;= RAM COUNT ===================================================================
@@ -202,8 +180,7 @@ ram_count:  lda     #$02                ; start at $02FF
 
 bios_ver:   .ASCIIZ "v65C02 BIOS v", VERSION
 copyright:  .ASCIIZ "Copyright (C) 2018 Ryan Clarke"
-ram_total:  .ASCIIZ "RAM installed: "
-ram_avail:  .ASCIIZ "RAM available: "
+ram:        .ASCIIZ "RAM: "
 bytes:      .ASCIIZ " bytes"
-uart:       .ASCIIZ "UART: 1,562,500 bps / 8-N-1"
+uart:       .ASCIIZ "UART: 115200 bps / 8-N-1"
 ready:      .ASCIIZ "Ready."

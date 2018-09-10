@@ -1,0 +1,356 @@
+;===============================================================================
+;Copyright (C) 2018 Ryan Clarke
+;
+;This program is free software (firmware): you can redistribute it and/or modify
+;it under the terms of the GNU General Public License as published by
+;the Free Software Foundation, either version 3 of the License, or
+;(at your option) any later version.
+;
+;This program is distributed in the hope that it will be useful,
+;but WITHOUT ANY WARRANTY; without even the implied warranty of
+;MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;GNU General Public License for more details.
+;
+;You should have received a copy of the GNU General Public License
+;along with this program.  If not, see <http://www.gnu.org/licenses/>.
+;===============================================================================
+
+
+;===============================================================================
+; Program   : v65C02 BIOS
+; File Name : monitor.a65
+; Project   : v65C02 8-bit Computer
+; Author    : Ryan Clarke
+; E-mail    : kj6msg@icloud.com
+;===============================================================================
+; Release History :
+;
+;    Version     | Date          | Description
+;    -------------------------------------------------
+;    0.0         | 09/01/2018    | Initial development
+;===============================================================================
+; Purpose : Monitor program for the v65C02 BIOS.
+;===============================================================================
+
+
+.PC02
+
+.INCLUDE    "ascii.inc"
+.INCLUDE    "memory.inc"
+.INCLUDE    "uart.inc"
+
+.IMPORT     htou8
+.IMPORT     htou16
+.IMPORT     uart_getc
+.IMPORT     uart_putc
+.IMPORT     uart_puts
+.IMPORT     u8toh
+.IMPORT     u16itod
+
+.EXPORT     monitor
+
+
+;= MONITOR =====================================================================
+; Monitor program.
+;
+; Parameters: none
+; Returns:    none
+;
+; Cycles (jsr->rts):
+
+.CODE
+
+monitor:    lda     #'>'                ; command prompt character
+            jsr     uart_putc           ; print command prompt
+            
+            ldx     #0                  ; X = string index
+@getline:   jsr     uart_getc           ; get character from UART
+            cmp     #ESC
+            beq     @escape             ; escape?
+            cmp     #LF
+            beq     @linefeed           ; line feed?
+            
+            cpx     #9
+            bcs     @getline            ; ignore input if > 9 characters
+            
+            sta     input, X            ; add character to command string
+            inx                         ; next string position
+            bra     @getline            ; keep getting characters
+            
+@escape:    ldx     #.HIBYTE(clrln_cmd) ; VT100 command string
+            lda     #.LOBYTE(clrln_cmd)
+            jsr     uart_puts           ; clear the line, reset the cursor
+            bra     monitor             ; new prompt
+
+@linefeed:  stz     input, X            ; add NUL terminator
+
+@isempty:   cpx     #0
+            beq     monitor             ; empty input string?
+            
+            ; validate input string format
+            lda     input+1             ; check 2nd character
+            beq     @noparams           ; NUL? no parameters
+            cmp     #' '
+            bne     invalid             ; Not a space? invalid command
+            
+            lda     input+6             ; check 7th character
+            beq     @single             ; NUL? only one parameter
+            cmp     #' '
+            bne     invalid             ; Not a space? invalid command
+            bra     @double             ; two parameters
+            
+            ; parse command
+@noparams:  lda     input
+            cmp     #'c'
+            beq     clrscr              ; clear screen?
+            cmp     #'?'
+            beq     help                ; help command?
+            cmp     #'r'
+            beq     run                 ; run command?
+            cmp     #'z'
+            beq     zmodem              ; zmodem command?
+            bra     invalid             ; invalid command
+            
+@single:    lda     input
+            cmp     #'d'
+            beq     dump                ; dump command?
+            bra     invalid             ; invalid command
+            
+@double:    lda     input
+            cmp     #'w'
+            beq     write               ; write command?
+            bra     invalid             ; invalid command
+            
+invalid:    ldx     #.HIBYTE(input)
+            lda     #.LOBYTE(input)
+            jsr     uart_puts           ; print the invalid command
+            
+            lda     #':'
+            jsr     uart_putc
+            lda     #' '
+            jsr     uart_putc
+            
+            ldx     #.HIBYTE(inv_msg)
+            lda     #.LOBYTE(inv_msg)
+            jsr     uart_puts           ; print the invalid message
+            jmp     monitor
+            
+            rts
+
+
+;= CLEAR SCREEN ================================================================
+; Clear the screen and reset the cursor with VT100 commands.
+;
+; Parameters: none
+; Returns:    none
+
+clrscr:     ldx     #.HIBYTE(clrscr_cmd)
+            lda     #.LOBYTE(clrscr_cmd)
+            jsr     uart_puts
+            
+            jmp     monitor
+
+
+;= DUMP MEMORY =================================================================
+; Dump 16 bytes of memory to the screen
+;
+; Parameters: none
+; Returns:    none
+;
+; Cycles (jsr->rts):
+
+dump:       jsr     memdump             ; dump 16 bytes of memory to screen
+            jmp     monitor             ; return to the monitor
+
+
+;= HELP MESSAGE ================================================================
+; Print the help message
+;
+; Parameters: none
+; Returns:    none
+
+.CODE
+
+help:       ldx     #.HIBYTE(help_msg0)
+            lda     #.LOBYTE(help_msg0)
+            jsr     uart_puts
+            
+            jmp     monitor
+
+
+;= RUN PROGRAM =================================================================
+; Run program at $0300
+;
+; Parameters: none
+; Returns:    none
+
+.CODE
+
+run:        jsr     $0300
+            jmp     monitor
+
+
+;= WRITE MEMORY ================================================================
+; Write memory at specified location
+;
+; Parameters: none
+; Returns:    none
+;
+; Cycles (jsr->rts):
+
+.CODE
+
+write:      jsr     memwrite
+            jmp     monitor
+
+
+;= ZMODEM ======================================================================
+; Receive file via ZMODEM
+;
+; Parameters: none
+; Returns:    none
+;
+; Cycles (jsr->rts):
+
+.CODE
+
+zmodem:     jmp     monitor
+
+
+;= MEMORY DUMP =================================================================
+; Dump 16 bytes of memory to the screen
+;
+; Parameters: none
+; Returns:    none
+
+memdump:    ldx     #.HIBYTE(input+2)
+            lda     #.LOBYTE(input+2)
+            jsr     htou16              ; convert hex string to uint16
+            stx     $03
+            sta     $02                 ; $(02) = start address
+            
+            ; take a snapshot of the memory
+            ldy     #15                 ; Y = offset
+@buffer:    lda     ($02), Y            ; A = load memory
+            sta     buf, Y              ; store in buffer
+            dey                         ; offset--
+            bpl     @buffer             ; offset >= 0?
+            
+            ; print passed memory address
+            txa                         ; MSB first
+            jsr     u8toh               ; unsigned byte to hex
+            jsr     uart_puts
+            lda     $02                 ; LSB next
+            jsr     u8toh               ; unsigned byte to hex
+            jsr     uart_puts
+            
+            lda     #':'
+            jsr     uart_putc
+            lda     #' '
+            jsr     uart_putc
+            
+            ldy     #0                  ; Y = offset
+@bytes:     lda     buf, Y              ; load buffered memory
+            jsr     u8toh               ; convert byte to hex
+            phy                         ; save Y (uart_puts destroys it)
+            jsr     uart_puts           ; print hex
+            ply                         ; restore Y
+            lda     #' '
+            jsr     uart_putc           ; print a space
+            
+            iny                         ; next address
+            cpy     #16
+            bne     @bytes              ; offset < 16?
+            
+            lda     #'['                ; start ASCII display
+            jsr     uart_putc
+            
+            ldy     #0                  ; Y = offset
+@toascii:   lda     buf, Y              ; load buffered memory
+            cmp     #$20                ; SPACE
+            bcc     @notascii           ; value < SPACE?
+            cmp     #$7F                ; DEL
+            bcs     @notascii           ; value >= DEL?
+            
+            jsr     uart_putc           ; print the ASCII representation
+            bra     @next
+            
+@notascii:  lda     #'.'                ; print a period for unprintables
+            jsr     uart_putc
+            
+@next:      iny                         ; offset++
+            cpy     #16
+            bne     @toascii            ; offset < 16?
+            
+            lda     #']'
+            jsr     uart_putc           ; end of ASCII display
+            
+            lda     #LF
+            jsr     uart_putc           ; line feed
+            
+            rts
+
+
+;= MEMORY WRITE ================================================================
+; Write byte to memory.
+;
+; Parameters: none
+; Returns:    none
+
+memwrite:   ldx     #.HIBYTE(input+2)
+            lda     #.LOBYTE(input+2)
+            jsr     htou16              ; convert address hex string to uint16
+            stx     $03
+            sta     $02                 ; ($02) = address
+            
+            ldx     input+7
+            lda     input+8
+            jsr     htou8               ; convert value hex string to uint8
+            sta     ($02)
+            pha                         ; save write value
+            
+            lda     $03                 ; address MSB
+            jsr     u8toh               ; convert address MSB to hex string
+            jsr     uart_puts           ; print address MSB
+            lda     $02                 ; address LSB
+            jsr     u8toh               ; convert address LSB to hex string
+            jsr     uart_puts           ; print address LSB
+            lda     #':'
+            jsr     uart_putc
+            lda     #' '
+            jsr     uart_putc
+            
+            pla                         ; A = write value
+            jsr     u8toh               ; convert write value to hex string
+            jsr     uart_puts           ; print write value
+            
+            lda     #LF
+            jsr     uart_putc           ; line feed
+            
+            rts
+
+
+;= READ ONLY DATA ==============================================================
+
+.RODATA
+
+; VT100 commands
+clrscr_cmd: .BYTE ESC, "[2J", ESC, "[H", 0
+clrln_cmd:  .BYTE CR, ESC, "[2K", 0
+
+inv_msg:    .BYTE "invalid command", LF, 0
+
+help_msg0:  .BYTE "clrscr", TAB, "c", LF
+help_msg1:  .BYTE "dump", TAB, "d address", LF
+help_msg2:  .BYTE "help", TAB, "?", LF
+help_msg3:  .BYTE "run", TAB, "r", LF 
+help_msg4:  .BYTE "write", TAB, "w address byte", LF
+help_msg5:  .BYTE "zmodem", TAB, "z", LF, NUL
+
+
+;= UNINITIALIZED DATA ==========================================================
+
+.BSS
+
+input:      .RES 10                 ; 9 characters plus NUL terminator
+buf:        .RES 16                 ; memory buffer

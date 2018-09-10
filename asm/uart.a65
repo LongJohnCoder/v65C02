@@ -36,6 +36,7 @@
 .PC02
 
 .INCLUDE    "memory.inc"
+.INCLUDE    "uart.inc"
 
 .EXPORT     uart_getc
 .EXPORT     uart_putc
@@ -43,17 +44,17 @@
 
 
 ;=UART GET CHARACTER ===========================================================
-; Gets a character from the UART.
+; Gets a byte from the UART. Blocking, will wait indefinitely.
 ;
 ; Parameters: none
 ; Returns:    A = character
 ;
-; Cycles (jsr->rts): 
+; Cycles (jsr->rts): 24 (assumes character ready)
 
 .CODE
 
 uart_getc:  lda     UART_STATUS     ; read UART STATUS register
-            bit     #$02            ; test RXFULL flag
+            bit     #RXFULL         ; test RXFULL flag
             beq     uart_getc       ; RXFULL == 0?
             
             lda     UART_RXREG      ; read character
@@ -62,35 +63,37 @@ uart_getc:  lda     UART_STATUS     ; read UART STATUS register
 
 
 ;= UART PRINT CHARACTER ========================================================
-; Prints a character to the UART
+; Sends a byte to the UART.
 ;
 ; Parameters: A = character
 ; Returns:    none
 ;
-; Cycles (jsr->rts):
+; Cycles (jsr->rts): 30 (assumes not busy)
 
 .CODE
 
-uart_putc:  pha
+uart_putc:  pha                     ; save character
             
-@poll:      lda     UART_STATUS
-            bit     #$01
-            bne     @poll
+@poll:      lda     UART_STATUS     ; read UART STATUS register
+            bit     #TXBUSY         ; test TXBUSY flag
+            bne     @poll           ; TXBUSY == 1?
             
-            pla
-            sta     UART_TXREG
+            pla                     ; restore character
+            sta     UART_TXREG      ; send it to UART
             
             rts
 
 
 ;= UART PRINT STRING ===========================================================
-; Prints a NULL terminated string to the UART.
+; Sends a NULL terminated string to the UART.
 ;
 ; Parameters: X = &string<15:8>
 ;             A = &string<7:0>
 ; Returns:    none
 ;
-; Cycles (jsr->rts): 29 + (25 * string length) [TX not busy]
+; Destroys:   Y, $00, $01
+;
+; Cycles (jsr->rts): 29 + (31 * string length) [doesn't factor polling time]
 
 .CODE
 
@@ -99,16 +102,19 @@ uart_puts:  stx     $01
             
             ldy     #0              ; Y = character counter
             
-@poll:      lda     UART_STATUS     ; read UART STATUS register
-            bit     #$01            ; test the TXBUSY flag
-            bne     @poll           ; TXBUSY == 1?
-            
-            lda     ($00), Y        ; A = string character
+@loop:      lda     ($00), Y        ; A = string character
             beq     @done           ; character = NUL?
             
+            pha                     ; save character
+            
+@poll:      lda     UART_STATUS     ; read UART STATUS register
+            bit     #TXBUSY         ; test the TXBUSY flag
+            bne     @poll           ; TXBUSY == 1?
+            
+            pla                     ; pull character to print
             sta     UART_TXREG      ; write character to UART
             
             iny                     ; next character
-            bra     @poll           ; keep getting characters
+            bra     @loop           ; keep getting characters
             
 @done:      rts

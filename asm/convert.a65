@@ -1,0 +1,303 @@
+;===============================================================================
+;Copyright (C) 2018 Ryan Clarke
+;
+;This program is free software (firmware): you can redistribute it and/or modify
+;it under the terms of the GNU General Public License as published by
+;the Free Software Foundation, either version 3 of the License, or
+;(at your option) any later version.
+;
+;This program is distributed in the hope that it will be useful,
+;but WITHOUT ANY WARRANTY; without even the implied warranty of
+;MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;GNU General Public License for more details.
+;
+;You should have received a copy of the GNU General Public License
+;along with this program.  If not, see <http://www.gnu.org/licenses/>.
+;===============================================================================
+
+
+;===============================================================================
+; Program   : v65C02 BIOS
+; File Name : convert.a65
+; Project   : v65C02 8-bit Computer
+; Author    : Ryan Clarke
+; E-mail    : kj6msg@icloud.com
+;===============================================================================
+; Release History :
+;
+;    Version     | Date          | Description
+;    -------------------------------------------------
+;    0.0         | 09/08/2018    | Initial development
+;===============================================================================
+; Purpose : Integer/ASCII string conversion routines.
+;===============================================================================
+
+.PC02
+
+.EXPORT htou8
+.EXPORT htou16
+.EXPORT u8toh
+.EXPORT u16tod
+
+
+;= HEXADECIMAL STRING TO 8-BIT UNSIGNED INTEGER ================================
+; Converts a hexadecimal string to an 8-bit unsigned integer. Code inspired from
+; Steve Wozniak's WOZ Monitor. Returns $00 for an invalid input.
+;
+; Parameters: X = hex high nibble
+;             A = hex low nibble
+; Returns:    A = uint8
+;
+; Destroys:   $00
+;
+; Cycles (jsr->rts): 32-63 (invalid high nibble - $FF)
+
+.CODE
+
+htou8:      pha                         ; save hex low nibble
+            txa                         ; A = hex high nibble
+            eor     #'0'                ; map digits to 0-9
+            cmp     #10                 ; check if within 0-9
+            bcc     @validMSN           ; 0-9? valid
+            
+            adc     #$88                ; map "A"-"F" to $FA-FF
+            cmp     #$FA                ; check if within $FA-FF
+            bcc     @invalid            ; less than $FA? invalid
+            
+@validMSN:  asl     A                   ; shift result to high nibble
+            asl     A
+            asl     A
+            asl     A
+            sta     $00                 ; save result to $0000
+            
+            pla                         ; A = hex low nibble
+            eor     #'0'                ; map digits to 0-9
+            cmp     #10                 ; check if within 0-9
+            bcc     @validLSN           ; 0-9? valid
+            
+            adc     #$88                ; map "A"-"F" to $FA-FF
+            cmp     #$FA                ; check if within $FA-FF
+            bcc     @invalid            ; less than $FA? invalid
+            and     #$0F                ; map to $0A-$0F
+            
+@validLSN:  ora     $00                 ; combine high and low nibbles
+            bra     @exit               ; done
+            
+@invalid:   lda     #$00                ; invalid input = $00 value
+            
+@exit:      rts
+
+
+;= HEXADECIMAL STRING TO 16-BIT UNSIGNED INTEGER ===============================
+; Converts a hexadecimal string to a 16-bit unsigned integer. Code inspired from
+; Steve Wozniak's WOZ Monitor. Returns $0000 for an invalid input.
+;
+; Parameters: X = &hexstring<15:8>
+;             A = &hexstring<7:0>
+; Returns:    X = integer<15:8>
+;             A = integer<7:0>
+;
+; Destroys:   Y, $00, $01, $02, $03
+;
+; Cycles (jsr->rts): 51-354
+
+.CODE
+
+htou16:     stx     $01
+            sta     $00                 ; ($00) = hex string
+            
+            stz     $03
+            stz     $02                 ; $0002 = 16-bit integer
+            
+            ldy     #0                  ; string index
+@loop:      lda     ($00), Y            ; A = hex digit
+            eor     #'0'                ; map digits to 0-9
+            cmp     #10
+            bcc     @valid              ; 0-9? valid
+            
+            adc     #$88                ; map "A"-"F" to $FA-FF
+            cmp     #$FA
+            bcc     @invalid            ; less than $FA? invalid
+            
+@valid:     asl     A                   ; shift into high nibble
+            asl     A
+            asl     A
+            asl     A
+            
+            asl     A                   ; MSB to C
+            rol     $02                 ; C to LSB
+            rol     $03                 ; propagate result
+            asl     A                   ; MSB to C
+            rol     $02                 ; C to LSB
+            rol     $03                 ; propagate result
+            asl     A                   ; MSB to C
+            rol     $02                 ; C to LSB
+            rol     $03                 ; propagate result
+            asl     A                   ; MSB to C
+            rol     $02                 ; C to LSB
+            rol     $03                 ; propagate result
+            
+            iny                         ; next character
+            cpy     #4                  ; last one?
+            bne     @loop               ; nope, continue
+            bra     @done               ; yes, we're doing
+            
+@invalid:   ldx     #$00                ; invalid input = $0000 value
+            lda     #$00
+            bra     @exit
+
+@done:      ldx     $03                 ; 16-bit value stored at $0002
+            lda     $02
+            
+@exit:      rts
+
+
+;= 8-BIT UNSIGNED INTEGER TO HEXADECIMAL STRING ================================
+; Converts 8-bit unsigned integer to null terminated hexadecimal string.
+; Inspired by Steve Wozniak's WOZ Monitor.
+;
+; Parameters: A = uint8
+; Returns:    X = &hexstring<15:8>
+;             A = &hexstring<7:0>
+;
+; Cycles (jsr->rts): 58-60
+
+.CODE
+
+u8toh:      pha                         ; save input
+            
+            lsr     A                   ; high nibble first
+            lsr     A
+            lsr     A
+            lsr     A
+            ora     #'0'                ; map 0-9 to "0"-"9"
+            cmp     #'9'+1              ; check if "0"-"9"
+            bcc     @lonibble           ; yes? go to the low nibble
+            
+            adc     #6                  ; map to "A"-"F"
+@lonibble:  sta     string              ; store first hex digit
+            
+            pla                         ; restore input
+            and     #$0F                ; low nibble
+            ora     #'0'                ; map 0-9 to "0"-"9"
+            cmp     #'9'+1              ; check if "0"-"9"
+            bcc     @done               ; yes? done.
+            
+            adc     #6                  ; map to "A"-"F"
+@done:      sta     string+1            ; store second hex digit
+            stz     string+2            ; NUL terminator
+            
+            ldx     #.HIBYTE(string)    ; &hexstring<15:8>
+            lda     #.LOBYTE(string)    ; hexstring<7:0>
+            
+            rts
+
+
+;= UNSIGNED 16-BIT INTEGER TO DECIMAL STRING ===================================
+; Converts an unsigned 16-bit integer to a null-terminated string using the
+; double dabble algorithm to first convert to BCD and then a conversion to
+; ACII.
+;
+; Parameters: X = &integer<15:8>
+;             A = &integer<7:0>
+; Returns:    X = &string<15:8>
+;             A = &string<7:0>
+;
+; Cycles (jsr->rts): 2067-3188
+
+.CODE
+
+u16tod:     stz     string                  ; set BCD bytes to 0
+            stz     string+1
+            stz     string+2
+            stx     string+3                ; integer bytes furthest to the
+            sta     string+4                ; right
+            
+            ; double-dabble to convert binary to BCD
+            ldy     #16                     ; Y = 16 bits, 16 shifts
+@dabble:    ldx     #2                      ; X = BCD packed byte counter
+@lonibble:  lda     string, X
+            and     #$0F                    ; low nibble first
+            cmp     #$05
+            bcc     @hinibble               ; low nibble < 5?
+            
+            lda     string, X               ; low nibble is greater than 4
+            clc
+            adc     #$03                    ; add three to nibble
+            sta     string, X               ; save back to BCD byte
+            
+@hinibble:  lda     string, X
+            and     #$F0                    ; high nibble
+            cmp     #$50
+            bcc     @next                   ; high nibble < 5?
+            
+            lda     string, X               ; high nibble is greater than 4
+            clc
+            adc     #$30                    ; add three to nibble
+            sta     string, X               ; save back to BCD byte
+            
+@next:      dex                             ; nexy BCD packed byte
+            bpl     @lonibble               ; X < 0?
+
+            asl     string+4                ; 5 byte left shift
+            rol     string+3
+            rol     string+2
+            rol     string+1
+            rol     string
+            
+            dey                             ; shift counter--
+            bne     @dabble                 ; Y > 0?
+            
+            ; convert BCD to ASCII
+            ldx     #2                      ; X = BCD packed byte counter
+            ldy     #4                      ; Y = null-terminated string counter
+@toascii:   lda     string, X               ; load BCD byte
+            and     #$0F                    ; low nibble first
+            ora     #'0'                    ; map 0-9 to "0"-"9"
+            sta     string, Y               ; store ASCII value
+            
+            dey                             ; next string position
+            lda     string, X               ; load BCD byte
+            lsr     A                       ; high nibble shift
+            lsr     A
+            lsr     A
+            lsr     A
+            ora     #'0'                    ; map 0-9 to "0"-"9"
+            sta     string, Y               ; store ASCII value
+            
+            dey                             ; next string position
+            dex                             ; next BCD byte
+            bne     @toascii                ; byte > 0?
+            
+            lda     string                  ; last BCD byte (low nibble only)
+            ora     #'0'                    ; map first digit to "0"-"9"
+            sta     string                  ; store ASCII value
+            
+            stz     string+5                ; null terminator
+            
+            ; remove leading zeros
+            lda     #.HIBYTE(string)
+            sta     $01
+            lda     #.LOBYTE(string)
+            sta     $00                     ; ($00) = &string
+            
+            ldx     #4                      ; check the first 4 digits
+@zeros:     lda     ($00)                   ; load ASCII digit
+            cmp     #'0'
+            bne     @done                   ; ASCII digit == '0'?
+            
+            inc     $00                     ; next ASCII digit
+            dex                             ; digit counter--
+            bne     @zeros                  ; digit counter > 0?
+            
+@done:      ldx     $01                     ; return value = &string
+            lda     $00
+            
+            rts
+
+
+;= UNINITIALIZED DATA ==========================================================
+
+.BSS
+
+string:     .RES 6                          ; string output
