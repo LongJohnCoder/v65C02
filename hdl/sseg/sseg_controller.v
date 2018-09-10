@@ -66,6 +66,21 @@ module SevenSegmentController
     
 /* CONTROLLER REGISTERS AND RAM ***********************************************/
     
+    localparam R_DIGITS = 8'h00,
+               R_DP     = 8'h01,
+               R_BYTE0  = 8'h02,
+               R_BYTE1  = 8'h03,
+               R_BYTE2  = 8'h04,
+               R_BYTE3  = 8'h05,
+               R_DIGIT0 = 8'h06,
+               R_DIGIT1 = 8'h07,
+               R_DIGIT2 = 8'h08,
+               R_DIGIT3 = 8'h09,
+               R_DIGIT4 = 8'h0A,
+               R_DIGIT5 = 8'h0B,
+               R_DIGIT6 = 8'h0C,
+               R_DIGIT7 = 8'h0D;
+    
     reg [7:0] digits_reg;               // DIGITS
     reg [7:0] dp_reg;                   // DP
     reg [3:0] data_reg [0:7];           // DATA
@@ -77,8 +92,8 @@ module SevenSegmentController
         if(en_i)
             if(we_i)
                 case(addr_i)
-                    8'h00: digits_reg <= #1 din_i;
-                    8'h01: dp_reg     <= #1 din_i;
+                    R_DIGITS: digits_reg <= #1 din_i;
+                    R_DP:     dp_reg     <= #1 din_i;
                 endcase
     
     // data registers
@@ -86,28 +101,68 @@ module SevenSegmentController
         if(en_i)
             if(we_i)
                 case(addr_i)
-                    8'h02:
+                    R_BYTE0:
                         begin
                             data_reg[0] <= #1 din_i[3:0];
                             data_reg[1] <= #1 din_i[7:4];
                         end
                 
-                    8'h03:
+                    R_BYTE1:
                         begin
                             data_reg[2] <= #1 din_i[3:0];
                             data_reg[3] <= #1 din_i[7:4];
                         end
-                
-                    8'h04:
+                    
+                    R_BYTE2:
                         begin
                             data_reg[4] <= #1 din_i[3:0];
                             data_reg[5] <= #1 din_i[7:4];
                         end
                 
-                    8'h05:
+                    R_BYTE3:
                         begin
                             data_reg[6] <= #1 din_i[3:0];
                             data_reg[7] <= #1 din_i[7:4];
+                        end
+                    
+                    R_DIGIT0:
+                        begin
+                            data_reg[0] <= #1 din_i[3:0];
+                        end
+                    
+                    R_DIGIT1:
+                        begin
+                            data_reg[1] <= #1 din_i[3:0];
+                        end
+                    
+                    R_DIGIT2:
+                        begin
+                            data_reg[2] <= #1 din_i[3:0];
+                        end
+                    
+                    R_DIGIT3:
+                        begin
+                            data_reg[3] <= #1 din_i[3:0];
+                        end
+                    
+                    R_DIGIT4:
+                        begin
+                            data_reg[4] <= #1 din_i[3:0];
+                        end
+                    
+                    R_DIGIT5:
+                        begin
+                            data_reg[5] <= #1 din_i[3:0];
+                        end
+                    
+                    R_DIGIT6:
+                        begin
+                            data_reg[6] <= #1 din_i[3:0];
+                        end
+                    
+                    R_DIGIT7:
+                        begin
+                            data_reg[7] <= #1 din_i[3:0];
                         end
                     endcase
     
@@ -134,18 +189,18 @@ module SevenSegmentController
     
 /* MULTIPLEXER ****************************************************************/
     
-    reg  [16:0] refresh_counter_reg;    // display refresh counter
+    reg  [18:0] refresh_counter_reg;    // display refresh counter
     wire [2:0]  digit;                  // current seven-segment digit
     reg  [7:0]  an_n_reg;               // anode (active low)
     reg  [7:0]  sseg_n_reg;             // seven-segment digit (active low)
     
     // refresh counter
-    initial refresh_counter_reg = 17'd0;
+    initial refresh_counter_reg = 19'd0;
     always @(posedge clk_i)
-        refresh_counter_reg <= #1 refresh_counter_reg + 17'd1;
+        refresh_counter_reg <= #1 refresh_counter_reg + 19'd1;
     
-    // ~432 Hz cycle rate equates to ~54 Hz display refresh rate
-    assign digit = refresh_counter_reg[16:14];
+    // ~762 Hz cycle rate equates to ~95 Hz display refresh rate
+    assign digit = refresh_counter_reg[18:16];
     
     // anode - essentially a 3-to-8 multiplexer
     initial an_n_reg = 8'hFF;
