@@ -65,16 +65,17 @@ module UART_TX
     
 /* TRANSMIT SHIFT REGISTER ****************************************************/
     
-    localparam B_IDLE  = 1'b1,          // idle state
-               B_START = 1'b0,          // start bit
-               B_STOP  = 1'b1;          // stop bit
+    // transmit bit values
+    localparam B_IDLE  = 1'b1,
+               B_START = 1'b0,
+               B_STOP  = 1'b1;
     
     reg [9:0] txsr_reg;                 // 10-bit transmit shift register
     
     initial txsr_reg = {10{B_IDLE}};
     always @(posedge clk_i)
         if(we_i)
-            txsr_reg <= #1 {B_STOP, din_i, B_START};
+            txsr_reg <= #1 {B_STOP, din_i, B_START};        // load
         else
             if(brg_16_stb)
                 txsr_reg <= #1 {B_IDLE, txsr_reg[9:1]};     // right shift
@@ -87,7 +88,7 @@ module UART_TX
     initial dout_ff = B_IDLE;
     always @(posedge clk_i)
         if(brg_16_stb)
-            dout_ff <= #1 txsr_reg[0];  // LSB of transmit shift register
+            dout_ff <= #1 txsr_reg[0];  // LSb of transmit shift register
     
     // output logic
     assign dout_o = dout_ff;
@@ -102,12 +103,12 @@ module UART_TX
         if(we_i)
             bit_count_reg <= #1 4'd10;  // 10 bits to transmit
         else
-            if(brg_16_stb)
+            if(brg_16_stb)              // sync with baud rate generator/16
                 if(bit_count_reg != 4'hF)
                     bit_count_reg <= #1 bit_count_reg - 4'h1;
     end
     
     // output logic
-    assign busy_o = (bit_count_reg != 4'hF);
+    assign busy_o = (bit_count_reg != 4'hF);    // rolls through 0
     
 endmodule

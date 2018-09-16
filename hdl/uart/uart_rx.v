@@ -67,35 +67,39 @@ module UART_RX
     
 /* STATE MACHINE **************************************************************/
     
+    // FSM states
     localparam S_IDLE  = 2'b00,
                S_START = 2'b01,
                S_DATA  = 2'b10,
                S_STOP  = 2'b11;
     
-    localparam B_START = 1'b0;
+    localparam B_START = 1'b0;          // start bit value
     
     reg [1:0] state_reg;
     reg [1:0] state_ns;
     
+    // FSM state register
     initial state_reg = S_IDLE;
     always @(posedge clk_i)
         state_reg <= #1 state_ns;
     
+    // FSM logic
     always @* begin
-        brg_count_ns = brg_count_reg;
-        bit_count_ns = bit_count_reg;
-        done_stb_o   = 1'b0;
-        state_ns     = state_reg;
+        brg_count_ns = brg_count_reg;   // baud rate generator counter
+        bit_count_ns = bit_count_reg;   // bit counter
+        done_stb_o   = 1'b0;            // "done" strobe
+        state_ns     = state_reg;       // state register
         
         case(state_reg)
             S_IDLE:
-                if(din_i == B_START) begin
-                    brg_count_ns = 4'h0;
+                if(din_i == B_START) begin      // triggered on start bit
+                    brg_count_ns = 4'h0;        // reset bit counter
                     state_ns     = S_START;
                 end
             
             S_START:
-                if(brg_stb_i) begin
+                if(brg_stb_i) begin             // correct timing for baud rate
+                    // half sample period to find middle of bit
                     if(brg_count_reg == 4'h7) begin
                         brg_count_ns = 4'h0;
                         bit_count_ns = 4'h0;
@@ -108,9 +112,11 @@ module UART_RX
             
             S_DATA:
                 if(brg_stb_i)
+                    // sample bit at middle, based on start bit timing
                     if(brg_count_reg == 4'hF) begin
                         brg_count_ns = 4'h0;
                         
+                        // receive eight bits
                         if(bit_count_reg == 4'h7)
                             state_ns = S_STOP;
                         else
@@ -122,8 +128,9 @@ module UART_RX
             
             S_STOP:
                 if(brg_stb_i) begin
+                    // we must account for the stop bit
                     if(brg_count_reg == 4'hF) begin
-                        done_stb_o = 1'b1;
+                        done_stb_o = 1'b1;      // toggle the "done" flag
                         state_ns   = S_IDLE;
                     end
                     else begin
@@ -140,11 +147,13 @@ module UART_RX
     
 /* RECEIVE SHIFT REGISTER *****************************************************/
     
-    localparam B_IDLE = 1'b1;
+    localparam B_IDLE = 1'b1;           // idle state
     
     wire       rxsr_en;
     reg  [7:0] rxsr_reg;
     
+    // receiver shift register only enabled in sync with baud rate generator,
+    // during the data portion of the FSM, and in the middle of a received bit.
     assign rxsr_en = (brg_stb_i) &
                      (state_reg == S_DATA) &
                      (brg_count_reg == 4'hF);
