@@ -10,7 +10,7 @@ BIOS_MEM = bios.mem
 OBJECTS  = main.o conio.o convert.o interrupts.o monitor.o uart.o vga_init.o
 
 AS       = ca65
-ASFLAGS  = --cpu 65C02 --listing $(basename $@).lst --target none
+ASFLAGS  = --cpu 65C02 -l $(basename $@).lst -t none -I ./include/
 
 LD       = ld65
 LDCONFIG = memory.conf
@@ -26,19 +26,19 @@ all: $(BIOS)
 %.o : %.a65
 	$(AS) $(ASFLAGS) -o $@ $<
 
-main.o : main.a65 conio.inc memory.inc
+main.o : main.a65 include/conio.inc include/memory.inc
 
-conio.o : conio.a65 memory.inc uart.inc
+conio.o : conio.a65 include/memory.inc include/uart.inc
 
 convert.o : convert.a65
 
 interrupts.o : interrupts.a65
 
-monitor.o : monitor.a65 ascii.inc memory.inc uart.inc
+monitor.o : monitor.a65 include/ascii.inc include/memory.inc include/uart.inc
 
-uart.o : uart.a65 memory.inc uart.inc
+uart.o : uart.a65 include/memory.inc include/uart.inc
 
-vga_init.o : vga_init.a65 ascii.inc colors.inc memory.inc
+vga_init.o : vga_init.a65 include/ascii.inc include/colors.inc include/memory.inc
 
 $(BIOS) : $(OBJECTS)
 	$(LD) $(LDFLAGS) $^
