@@ -138,7 +138,18 @@ main:       cli                         ; enable interrupts
             lda     #.LOBYTE(ready)
             jsr     puts                ; print ready message
             
-            jsr     monitor             ; ROM monitor program
+            ;jsr     monitor            ; ROM monitor program
+            
+            lda     #$03
+            sta     SSEG_DIGITS         ; turn on digit 0 and 1
+            
+@keyb:      lda     KBD_STATUS
+            bit     $01                 ; test DATA_RDY
+            beq     @keyb               ; keep polling
+            
+            lda     KBD_SCANCODE        
+            sta     SSEG_BYTE0          ; send the scan code to the SSEG
+            bra     @keyb
             
 @idle:      bra     @idle               ; idle
 

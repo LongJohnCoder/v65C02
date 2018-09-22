@@ -65,7 +65,11 @@ module v65C02_Top
     
     // UART
     input  wire       UART_TXD_IN,      // input from serial port
-    output wire       UART_RXD_OUT      // output to serial port
+    output wire       UART_RXD_OUT,     // output to serial port
+    
+    // PS/2 keyboard
+    input wire        PS2_CLK,          // PS/2 clock
+    input wire        PS2_DATA          // PS/2 serial data
     );
     
     
@@ -250,7 +254,27 @@ module v65C02_Top
     // output logic
     assign UART_RXD_OUT = uart_tx;
     
-        
+    
+/* PS/2 KEYBOARD **************************************************************/
+    
+    localparam KBD_CONTROL = 8'h93;         // kbd control bus = $9300->$93FF
+    
+    wire       kbd_en;                      // kbd control bus select
+    wire [7:0] kbd_dout;                    // 8-bit data output
+    
+    assign kbd_en = (cpu_addr[15:8] == KBD_CONTROL);
+    
+    KeyboardController KeyboardController
+        (
+        .clk_i    (clk_cpu),
+        .en_i     (kbd_en),
+        .addr_i   (cpu_addr[7:0]),
+        .dout_o   (kbd_dout),
+        .ps2_clk_i(PS2_CLK),
+        .ps2_din_i(PS2_DATA)
+        );
+    
+    
 /* MEMORY DECODING LOGIC ******************************************************/
     
     reg [7:0] cpu_addr_p1_msb_reg;          // v65C02 address MSB pipeline
@@ -267,6 +291,7 @@ module v65C02_Top
             VRAM_ADDRH:   cpu_din = vga_dout;
             VGA_CONTROL:  cpu_din = vga_dout;
             UART_CONTROL: cpu_din = uart_dout;
+            KBD_CONTROL:  cpu_din = kbd_dout;
             BIOS_ADDRH:   cpu_din = bios_dout;
             default:      cpu_din = 8'h00;
         endcase
