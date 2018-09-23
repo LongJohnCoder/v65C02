@@ -40,6 +40,7 @@
 .INCLUDE    "uart.inc"
 
 .IMPORT     gotoxy
+.IMPORT     keymap
 .IMPORT     monitor
 .IMPORT     puts
 .IMPORT     uart_getc
@@ -140,7 +141,7 @@ main:       cli                         ; enable interrupts
             
             ;jsr     monitor            ; ROM monitor program
             
-            lda     #$03
+            lda     #$33
             sta     SSEG_DIGITS         ; turn on digit 0 and 1
             
 @keyb:      lda     KBD_STATUS
@@ -149,6 +150,10 @@ main:       cli                         ; enable interrupts
             
             lda     KBD_SCANCODE        
             sta     SSEG_BYTE0          ; send the scan code to the SSEG
+            
+            tax
+            lda     keymap, X           ; retrieve ASCII value
+            sta     SSEG_BYTE2          ; send ASCII code to SSEG
             bra     @keyb
             
 @idle:      bra     @idle               ; idle

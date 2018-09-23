@@ -7,7 +7,7 @@ bin_dir      = $(exec_prefix)/bram_data
 BIOS     = bios.rom
 BIOS_COE = bios.coe
 BIOS_MEM = bios.mem
-OBJECTS  = main.o conio.o convert.o interrupts.o monitor.o uart.o vga_init.o
+OBJECTS  = main.o conio.o convert.o interrupts.o keymap.o monitor.o uart.o vga_init.o
 
 AS       = ca65
 ASFLAGS  = --cpu 65C02 -l $(basename $@).lst -t none -I ./include/
@@ -33,6 +33,8 @@ conio.o : conio.a65 include/memory.inc include/uart.inc
 convert.o : convert.a65
 
 interrupts.o : interrupts.a65
+
+keymap.o : keymap.a65
 
 monitor.o : monitor.a65 include/ascii.inc include/memory.inc include/uart.inc
 
