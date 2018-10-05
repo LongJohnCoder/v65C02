@@ -1,7 +1,7 @@
 `timescale 1 ns / 1 ps
 
 /*******************************************************************************
-Copyright (C) 2017-2018 Ryan Clarke
+Copyright (C) 2018 Ryan Clarke
 
 This program is free software (firmware): you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -17,19 +17,12 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 *******************************************************************************/
 
-
 /*******************************************************************************
 Module Name : VGAController_tb
 File Name   : vga_controller_tb.v
 Project     : v65C02 8-bit Computer
 Author      : Ryan Clarke
 E-mail      : kj6msg@icloud.com
-================================================================================
-Release History
-
-    Version     | Date          | Description
-    --------------------------------------------
-    0.0         | 07/07/2018    | Initial design
 ================================================================================
 Purpose : Verilog test bench for module VGAController associated with the v65C02
           8-bit Computer.

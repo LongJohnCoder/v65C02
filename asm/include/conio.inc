@@ -15,7 +15,6 @@
 ;along with this program.  If not, see <http://www.gnu.org/licenses/>.
 ;===============================================================================
 
-
 ;===============================================================================
 ; Program   : v65C02 BIOS
 ; File Name : conio.inc
@@ -23,13 +22,7 @@
 ; Author    : Ryan Clarke
 ; E-mail    : kj6msg@icloud.com
 ;===============================================================================
-; Release History :
-;
-;    Version     | Date          | Description
-;    -------------------------------------------------
-;    0.0         | 08/15/2018    | Initial development
-;===============================================================================
-; Purpose : Console I/O macros for the v65C02 BIOS.
+; Purpose : Console input/output macros for the v65C02 BIOS.
 ;===============================================================================
 
 
@@ -46,7 +39,7 @@ CURS = %00000010                        ; CURS bit mask for VGA STATUS register
 ;
 ; Destroys: A
 ;
-; Cycles (lda->sta): 10
+; Cycles: 10
 
 .macro cursor_off
             lda     #.LOBYTE(~CURS)     ; CURS bit mask off
@@ -63,7 +56,7 @@ CURS = %00000010                        ; CURS bit mask for VGA STATUS register
 ;
 ; Destroys: A
 ;
-; Cycles (lda->sta): 10
+; Cycles: 10
 
 .macro cursor_on
             lda     #CURS               ; CURS bit mask on

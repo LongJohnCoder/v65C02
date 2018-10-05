@@ -15,7 +15,6 @@
 ;along with this program.  If not, see <http://www.gnu.org/licenses/>.
 ;===============================================================================
 
-
 ;===============================================================================
 ; Program   : v65C02 BIOS
 ; File Name : keymap.a65
@@ -23,13 +22,7 @@
 ; Author    : Ryan Clarke
 ; E-mail    : kj6msg@icloud.com
 ;===============================================================================
-; Release History :
-;
-;    Version     | Date          | Description
-;    -------------------------------------------------
-;    0.0         | 09/23/2018    | Initial development
-;===============================================================================
-; Purpose : Keyboard scan code map for the v65C02 BIOS.
+; Purpose : PS/2 keyboard scan code maps for the v65C02 BIOS.
 ;===============================================================================
 
 

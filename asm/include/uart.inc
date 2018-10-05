@@ -15,23 +15,24 @@
 ;along with this program.  If not, see <http://www.gnu.org/licenses/>.
 ;===============================================================================
 
-
 ;===============================================================================
-; Program   : BIOS
-; File Name : memory.inc
+; Program   : v65C02 BIOS
+; File Name : uart.inc
 ; Project   : v65C02 8-bit Computer
 ; Author    : Ryan Clarke
 ; E-mail    : kj6msg@icloud.com
 ;===============================================================================
-; Release History :
-;
-;    Version     | Date          | Description
-;    -------------------------------------------------
-;    0.0         | 09/01/2018    | Initial development
-;===============================================================================
-; Purpose : Baud rate generator values for the v65C02 8-bit Computer.
+; Purpose : UART constants for the v65C02 BIOS.
 ;===============================================================================
 
+
+;= REGISTER BITS ===============================================================
+
+TXBUSY = %00000001
+RXFULL = %00000010
+
+
+;= BAUD RATE GENERATOR VALUES ==================================================
 
 B110     = 28408
 B300     = 10416
@@ -57,6 +58,3 @@ B921600  = 2
 B1000000 = 2
 B1024000 = 2
 B1562500 = 1
-
-TXBUSY = $01
-RXFULL = $02

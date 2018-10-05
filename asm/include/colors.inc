@@ -16,19 +16,13 @@
 ;===============================================================================
 
 ;===============================================================================
-; Program   : BIOS
+; Program   : v65C02 BIOS
 ; File Name : colors.inc
 ; Project   : v65C02 8-bit Computer
 ; Author    : Ryan Clarke
 ; E-mail    : kj6msg@icloud.com
 ;===============================================================================
-; Release History :
-;
-;    Version     | Date          | Description
-;    -------------------------------------------------
-;    0.0         | 08/05/2018    | Initial development
-;===============================================================================
-; Purpose : Color constants for text attributes.
+; Purpose : Text attribute color constants for the v65C02 BIOS.
 ;===============================================================================
 
 

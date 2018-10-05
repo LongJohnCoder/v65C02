@@ -17,19 +17,12 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 *******************************************************************************/
 
-
 /*******************************************************************************
 Module Name : Synchronizer_tb
 File Name   : synchronizer_tb.v
 Project     : v65C02 8-bit Computer
 Author      : Ryan Clarke
 E-mail      : kj6msg@icloud.com
-================================================================================
-Release History
-
-    Version     | Date          | Description
-    --------------------------------------------
-    1.0         | 07/07/2018    | Initial design
 ================================================================================
 Purpose : Verilog test bench for module Synchronizer associated with the v65C02
           8-bit Computer.

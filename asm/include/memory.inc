@@ -15,31 +15,25 @@
 ;along with this program.  If not, see <http://www.gnu.org/licenses/>.
 ;===============================================================================
 
-
 ;===============================================================================
-; Program   : BIOS
+; Program   : v65C02 BIOS
 ; File Name : memory.inc
 ; Project   : v65C02 8-bit Computer
 ; Author    : Ryan Clarke
 ; E-mail    : kj6msg@icloud.com
 ;===============================================================================
-; Release History :
-;
-;    Version     | Date          | Description
-;    -------------------------------------------------
-;    0.0         | 08/07/2018    | Initial development
-;===============================================================================
-; Purpose : Include file outlining memory map for the v65C02 8-bit Computer.
+; Purpose : Memory addresses for the v65C02 BIOS.
 ;===============================================================================
 
 
-;= ABSOLUTE ADDRESS MAP ========================================================
+;= ABSOLUTE ADDRESSES ==========================================================
 
 ZP           = $0000
 STACK        = $0100
 BIOS_RAM     = $0200
 PROG_RAM     = $0300
 VRAM         = $8000
+VRAM_END     = $8000 + $1000
 VGA_STATUS   = $9000
 VGA_CURSL    = $9001
 VGA_CURSH    = $9002
@@ -67,7 +61,7 @@ KBD_SCANCODE = $9301
 BIOS_ROM     = $C000
 
 
-;= ZERO PAGE MAP ===============================================================
+;= ZERO PAGE ADDRESSES =========================================================
 
 COL = $F0
 ROW = $F1

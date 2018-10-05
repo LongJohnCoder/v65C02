@@ -17,7 +17,6 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 *******************************************************************************/
 
-
 /*******************************************************************************
 Module Name : SevenSegmentController
 Dependences : HexToSSEG
@@ -25,12 +24,6 @@ File Name   : sseg_controller.v
 Project     : v65C02 8-bit Computer
 Author      : Ryan Clarke
 E-mail      : kj6msg@icloud.com
-================================================================================
-Release History :
-
-    Version     | Date          | Description
-    --------------------------------------------
-    0.0         | 08/12/2018    | Initial design
 ================================================================================
 Purpose : Seven-segment display controller for the v65C02 8-bit Computer on the
           Nexys 4 DDR FPGA development board.

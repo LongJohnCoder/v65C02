@@ -15,7 +15,6 @@
 ;along with this program.  If not, see <http://www.gnu.org/licenses/>.
 ;===============================================================================
 
-
 ;===============================================================================
 ; Program   : v65C02 BIOS
 ; File Name : conio.a65
@@ -23,13 +22,7 @@
 ; Author    : Ryan Clarke
 ; E-mail    : kj6msg@icloud.com
 ;===============================================================================
-; Release History :
-;
-;    Version     | Date          | Description
-;    -------------------------------------------------
-;    0.0         | 08/07/2018    | Initial development
-;===============================================================================
-; Purpose : Console I/O routines for the v65C02 BIOS.
+; Purpose : Console input/output routines for the v65C02 8-bit Computer.
 ;===============================================================================
 
 
@@ -49,7 +42,6 @@
 
 ;= CONSTANTS ===================================================================
 
-VRAM_END = VRAM + $1000
 ATTRIB   = (BLACK << 4) | LIGHT_GRAY
 
 
@@ -61,7 +53,7 @@ ATTRIB   = (BLACK << 4) | LIGHT_GRAY
 ;
 ; Destroys: $00, $01
 ;
-; Cycles (jsr->rts):
+; Cycles (jsr->rts): 4549
 
 .CODE
 
@@ -116,7 +108,7 @@ clrln:      ldx     #0
 ;
 ; Destroys: $00, 01
 ;
-; Cycles (jsr->rts):
+; Cycles (jsr->rts): 110783
 
 .CODE
 
@@ -156,7 +148,7 @@ clrscr:     lda     #.HIBYTE(VRAM)
 ;
 ; Destroys: Y, $02, $03
 ;
-; Cycles (jsr->rts):
+; Cycles (jsr->rts): 48 - [205 * strlen + 8]
 
 .CODE
 
@@ -173,7 +165,6 @@ cputs:      stx     $05
             iny                         ; index++
             bra     @loop               ; next character
             
-            
 @done:      cursor_on                   ; turn cursor on
             
             rts
@@ -188,7 +179,7 @@ cputs:      stx     $05
 ;
 ; Destroys: $00, $01, $02
 ;
-; Cycles (jsr->rts):
+; Cycles (jsr->rts): 102
 
 .CODE
 
@@ -244,7 +235,7 @@ gotoxy:     cpx     #80
 ;
 ; Destroys: X, $00, $01
 ;
-; Cycles (jsr->rts):
+; Cycles (jsr->rts): 63-193
 
 .CODE
 

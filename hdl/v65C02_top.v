@@ -17,7 +17,6 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 *******************************************************************************/
 
-
 /*******************************************************************************
 Module Name : v65C02_Top
 Dependences : ClockGen, CPUReset, cpu_65c02, RAM_32K8, ROM_16K8, VGAController,
@@ -26,15 +25,6 @@ File Name   : v65C02_top.v
 Project     : v65C02 8-bit Computer
 Author      : Ryan Clarke
 E-mail      : kj6msg@icloud.com
-================================================================================
-Release History :
-
-    Version     | Date          | Description
-    ----------------------------------------------------------
-    0.0         | 07/25/2018    | Initial design
-    0.1         | 08/12/2018    | Seven-segment display added.
-    0.2         | 08/31/2018    | Adjusted CPU clock to 50MHz.
-    0.3         | 09/01/2018    | UART added.
 ================================================================================
 Purpose : Top module for the v65C02 8-bit Computer.
 *******************************************************************************/

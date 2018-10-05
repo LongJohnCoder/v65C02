@@ -17,19 +17,12 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 *******************************************************************************/
 
-
 /*******************************************************************************
 Module Name : CRTC_tb
 File Name   : crtc_tb.v
 Project     : v65C02 8-bit Computer
 Author      : Ryan Clarke
 E-mail      : kj6msg@icloud.com
-================================================================================
-Release History
-
-    Version     | Date          | Description
-    --------------------------------------------
-    0.0         | 07/07/2018    | Initial design
 ================================================================================
 Purpose : Verilog test bench for module CRTC associated with the v65C02 8-bit
           Computer.

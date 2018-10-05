@@ -17,7 +17,6 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 *******************************************************************************/
 
-
 /*******************************************************************************
 Module Name : KeyboardController
 File Name   : kbd_controller.v
@@ -25,14 +24,9 @@ Project     : v65C02 8-bit Computer
 Author      : Ryan Clarke
 E-mail      : kj6msg@icloud.com
 ================================================================================
-Release History :
-
-    Version     | Date          | Description
-    --------------------------------------------
-    0.1         | 05/06/2018    | Initial design
-================================================================================
 Purpose : PS/2 keyboard controller for the v65C02 8-bit Computer.
 *******************************************************************************/
+
 
 module KeyboardController
     (

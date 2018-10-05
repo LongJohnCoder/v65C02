@@ -1,7 +1,7 @@
 `timescale 1 ns / 1 ps
 
 /*******************************************************************************
-Copyright (C) 2017-2018 Ryan Clarke
+Copyright (C) 2018 Ryan Clarke
 
 This program is free software (firmware): you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -17,7 +17,6 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 *******************************************************************************/
 
-
 /*******************************************************************************
 Module Name : VGAController
 Dependences : CRTC, RAM_4K8_2K16, CharacterGenerator, ROM_4K8,
@@ -26,17 +25,6 @@ File Name   : vga_controller.v
 Project     : v65C02 8-bit Computer
 Author      : Ryan Clarke
 E-mail      : kj6msg@icloud.com
-================================================================================
-Release History :
-
-    Version     | Date          | Description
-    ----------------------------------------------------------------------------
-    0.0         | 12/07/2017    | Initial design
-    0.1         | 02/04/2018    | Modified to support 720x400 IBM VGA resolution
-    0.2         | 07/09/2018    | Video RAM moved inside VGA controller
-    0.3         | 08/05/2018    | Initial register values added
-    0.4         | 08/07/2018    | Moved control registers inside module
-    0.5         | 08/09/2018    | Changed cursor position to a VRAM address
 ================================================================================
 Purpose : VGA text-mode controller for the v65C02 8-bit Computer on the 
           Nexys 4 DDR FPGA development board. Implements a CRT controller, 4KB

@@ -15,19 +15,12 @@
 ;along with this program.  If not, see <http://www.gnu.org/licenses/>.
 ;===============================================================================
 
-
 ;===============================================================================
 ; Program   : v65C02 BIOS
 ; File Name : monitor.a65
 ; Project   : v65C02 8-bit Computer
 ; Author    : Ryan Clarke
 ; E-mail    : kj6msg@icloud.com
-;===============================================================================
-; Release History :
-;
-;    Version     | Date          | Description
-;    -------------------------------------------------
-;    0.0         | 09/01/2018    | Initial development
 ;===============================================================================
 ; Purpose : Monitor program for the v65C02 BIOS.
 ;===============================================================================
@@ -54,13 +47,7 @@
 .EXPORT     monitor
 
 
-;= MONITOR =====================================================================
-; Monitor program.
-;
-; Parameters: none
-; Returns:    none
-;
-; Cycles (jsr->rts):
+;= MONITOR PROGRAM =============================================================
 
 .CODE
 
@@ -216,7 +203,7 @@ help:       ldx     #.HIBYTE(help_msg)
 
 ;= RUN =========================================================================
 
-run:        jsr     $0300
+run:        jsr     PROG_RAM
             jmp     monitor
 
 
@@ -344,7 +331,7 @@ memwrite:   ldx     #.HIBYTE(input+2)
             rts
 
 
-;= READ ONLY DATA ==============================================================
+;= STRINGS =====================================================================
 
 .RODATA
 
@@ -358,7 +345,7 @@ help_msg4:  .BYTE "write", TAB, "w address byte", LF
 help_msg5:  .BYTE "ymodem", TAB, "y", LF, NUL
 
 
-;= UNINITIALIZED DATA ==========================================================
+;= VARIABLES ===================================================================
 
 .BSS
 
