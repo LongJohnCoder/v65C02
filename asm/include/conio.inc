@@ -33,7 +33,9 @@
 ;===============================================================================
 
 
-CURS = $02
+;= CONSTANTS ===================================================================
+
+CURS = %00000010                        ; CURS bit mask for VGA STATUS register
 
 
 ;= DISABLE CURSOR ==============================================================
@@ -41,6 +43,8 @@ CURS = $02
 ;
 ; Parameters: none
 ; Returns:    none
+;
+; Destroys: A
 ;
 ; Cycles (lda->sta): 10
 
@@ -56,6 +60,8 @@ CURS = $02
 ;
 ; Parameters: none
 ; Returns:    none
+;
+; Destroys: A
 ;
 ; Cycles (lda->sta): 10
 

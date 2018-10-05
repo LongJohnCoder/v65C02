@@ -60,6 +60,6 @@ irq:    rti
 
 .SEGMENT "VECTORS"
 
-        .WORD   nmi             ; $FFFA
-        .WORD   reset           ; $FFFC
-        .WORD   irq             ; $FFFE
+        .WORD nmi               ; $FFFA
+        .WORD reset             ; $FFFC
+        .WORD irq               ; $FFFE

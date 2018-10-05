@@ -35,59 +35,113 @@
 
 .PC02
 
+.INCLUDE    "ascii.inc"
+.INCLUDE    "colors.inc"
+.INCLUDE    "conio.inc"
 .INCLUDE    "memory.inc"
 
+.EXPORT     clrln
+.EXPORT     clrscr
+.EXPORT     cputs
 .EXPORT     gotoxy
-.EXPORT     puts
+.EXPORT     putch
 
 
-;= MOVE CURSOR =================================================================
-; Moves the cursor to a screen position.
+;= CONSTANTS ===================================================================
+
+VRAM_END = VRAM + $1000
+ATTRIB   = (BLACK << 4) | LIGHT_GRAY
+
+
+;= CLEAR LINE --================================================================
+; Clear a line with NUL characters and light gray on black text attribute.
 ;
-; Parameters: X = column
-;             A = row
+; Parameters: A = line number
 ; Returns:    none
 ;
-; Cycles (jsr->rts): 90
+; Destroys: $00, $01
+;
+; Cycles (jsr->rts):
 
 .CODE
 
-gotoxy:     stx     $00
-            stz     $01                 ; $0000 = column
+clrln:      ldx     #0
+            jsr     gotoxy              ; set cursor to (0,A)
             
-            stz     $02                 ; $02:A = row
+            lda     VGA_CURSH
+            sta     $01
+            lda     VGA_CURSL
+            sta     $00                 ; ($0000) = 11-bit cursor address
             
-            asl     A
-            asl     A
-            asl     A
-            asl     A
-            rol     $02                 ; $02:A = row << 4
+            asl     $00                 ; 12-bit VRAM addr = cursor addr << 1
+            rol     $01                 ; A = $0001 << 1
+            lda     $01
+            ora     #.HIBYTE(VRAM)      ; create 16-bit memory address
+            sta     $01                 ; ($00) = 16-bit VRAM address
             
-            tax                         ; $02:X = row << 4
-            
+            ldx     #80                 ; X = column counter
+@loop:      lda     #NUL                ; A = NUL character
+            sta     ($00)               ; store NUL to VRAM
+
+            lda     #$01
             clc
             adc     $00
             sta     $00
             lda     $01
-            adc     $02
-            sta     $01                 ; $0000 = column + (row << 4)
+            adc     #$00
+            sta     $01                 ; ($00) + $0001
+
+            lda     #ATTRIB             ; A = attribute
+            sta     ($00)               ; store attribute to VRAM
             
-            txa                         ; $02:A = row << 4
-            
-            asl     A
-            rol     $02
-            asl     A
-            rol     $02                 ; $02:A = row << 6
-            
-            ; VGA cursor address = column + (row << 4) + (row << 6)
-            ; $0000 = column + (row << 4)
-            ; $02:A = row << 6
+            lda     #$01
             clc
             adc     $00
-            sta     VGA_CURSL
+            sta     $00
             lda     $01
-            adc     $02
-            sta     VGA_CURSH
+            adc     #$00
+            sta     $01                 ; ($00) + $0001
+            
+            dex
+            bne     @loop
+            
+            rts
+
+
+;= CLEAR SCREEN ================================================================
+; Clear the screen with NUL characters and light gray on black text attribute.
+;
+; Parameters: none
+; Returns:    none
+;
+; Destroys: $00, 01
+;
+; Cycles (jsr->rts):
+
+.CODE
+
+clrscr:     lda     #.HIBYTE(VRAM)
+            sta     $01
+            lda     #.LOBYTE(VRAM)
+            sta     $00                 ; ($0000) = VRAM address
+            
+@loop:      lda     #NUL                ; A = NUL character
+            sta     ($00)               ; store NUL to VRAM
+            inc     $00                 ; increment VRAM address LSB
+            lda     #ATTRIB             ; A = attribute
+            sta     ($00)               ; store attribute to VRAM
+            inc     $00                 ; increment VRAM address LSB
+            bne     @loop               ; $0000 > 0? loop
+            
+            inc     $01                 ; increment VRAM address MSB
+            lda     $01                 ; A = VRAM address MSB
+            cmp     #.HIBYTE(VRAM_END)  ; compare VRAM addr w/ VRAM end (MSBs)
+            bne     @loop               ; VRAM address MSB < end? loop
+            
+            stz     VGA_CURSH
+            stz     VGA_CURSL           ; set cursor to (0,0)
+            stz     COL
+            stz     ROW                 ; update stored cursor coordinates
             
             rts
 
@@ -100,59 +154,150 @@ gotoxy:     stx     $00
 ;             A = &string<7:0>
 ; Returns:    none
 ;
-; Cycles (jsr->rts): 89 + (50 * string length)
+; Destroys: Y, $02, $03
+;
+; Cycles (jsr->rts):
 
 .CODE
 
-puts:       stx     $03
-            sta     $02                 ; ($02) = string address
+cputs:      stx     $05
+            sta     $04                 ; ($0004) = string address
+            
+            cursor_off                  ; turn cursor off
+            
+            ldy     #0                  ; Y = string index
+@loop:      lda     ($04), Y            ; A = string character
+            beq     @done               ; character == NUL? done
+            
+            jsr     putch
+            iny                         ; index++
+            bra     @loop               ; next character
+            
+            
+@done:      cursor_on                   ; turn cursor on
+            
+            rts
+
+
+;= MOVE CURSOR =================================================================
+; Moves the cursor to a screen position.
+;
+; Parameters: X = column
+;             A = row
+; Returns:    none
+;
+; Destroys: $00, $01, $02
+;
+; Cycles (jsr->rts):
+
+.CODE
+
+gotoxy:     cpx     #80
+            bcs     @done               ; column >= 80? done
+            cmp     #25
+            bcs     @done               ; row >= 25? done
+            
+            stx     COL
+            sta     ROW                 ; update stored cursor coordinates
+            
+            stx     $00
+            stz     $01                 ; $0000 = column (16-bit)
+            stz     $02                 ; $0002,A = row (16-bit)
+            
+            asl     A
+            asl     A
+            asl     A
+            asl     A                   ; don't have to carry until 4th shift
+            rol     $02                 ; $0002,A = row << 4
+            pha                         ; push A
+            
+            adc     $00                 ; carry already cleared
+            sta     $00
+            lda     $01
+            adc     $02
+            sta     $01                 ; $0000 = column + (row << 4)
+            
+            pla                         ; $0002,A = row << 4
+            asl     A
+            rol     $02
+            asl     A
+            rol     $02                 ; $0002,A = row << 6
+            
+            ; VGA cursor address = column + (row << 4) + (row << 6)
+            ; $0000 = column + (row << 4)
+            ; $0002,A = row << 6
+            clc
+            adc     $00
+            sta     VGA_CURSL
+            lda     $01
+            adc     $02
+            sta     VGA_CURSH
+            
+@done:      rts
+
+
+;= PRINT CHARACTER =============================================================
+; Prints a character to the screen. Updates the cursor position after printing.
+;
+; Parameters: A = character
+; Returns:    none
+;
+; Destroys: X, $00, $01
+;
+; Cycles (jsr->rts):
+
+.CODE
+
+putch:      pha                         ; push character to the stack
             
             lda     VGA_CURSH
             sta     $01
             lda     VGA_CURSL
-            sta     $00                 ; $0000 = 11-bit cursor address
+            sta     $00                 ; ($0000) = 11-bit cursor address
             
-            asl     $00                 ; 12-bit VRAM addr = cursor address << 1
-            rol     $01                 ; $0000 << 1
-            lda     #.HIBYTE(VRAM)      ; retrieve VRAM starting page
-            ora     $01                 ; generate proper 16-bit address
+            asl     $00                 ; 12-bit VRAM addr = cursor addr << 1
+            rol     $01                 ; A = $0001 << 1
+            lda     $01
+            ora     #.HIBYTE(VRAM)      ; create 16-bit memory address
             sta     $01                 ; ($00) = 16-bit VRAM address
             
-            ldy     #$00                ; Y = character counter
+            pla                         ; pull character from the stack
+            cmp     #LF
+            beq     @newline            ; character == LF? newline
+            cmp     #TAB
+            beq     @tab                ; character == TAB? tab
             
-@loop:      lda     ($02), Y            ; retrieve character from string
-            beq     @done               ; character == NUL?
-        
-            sta     ($00)               ; write character to VRAM
+@printable: sta     ($00)               ; write the character to VRAM
             
-            lda     $01                 ; get VRAM address page
-            cmp     #$8F                ; compare with $8F
-            bne     @next               ; VRAM page != $8F?
+            ldx     COL                 ; X = current column
+            cpx     #79
+            beq     @newline            ; column == 79? newline
+
+            inx                         ; column++
+            lda     ROW                 ; A = current row
+            bra     @cursor             ; update cursor position
             
-            lda     $00                 ; get VRAM address LSB
-            cmp     #$9E                ; compare with $9E
-            beq     @done               ; VRAM address LSB == $9E?
+@tab:       lda     COL                 ; A = column
+            cmp     #72
+            bcs     @newline            ; column >= 72
             
-@next:      iny                         ; next character
-            
-            lda     #$02                ; skip over the attribute byte
+            and     #%00000111          ; A = column % 8
+            sta     $00                 ; save value into $0000
+            lda     #8
+            sec
+            sbc     $00                 ; A = 8 - (column % 8)
             clc
-            adc     $00                 ; add 2 to VRAM address LSB
-            sta     $00                 ; store new LSB
-            lda     #$00
-            adc     $01                 ; add carry to VRAM page
-            sta     $01                 ; $(00) = VRAM addr + 2
+            adc     COL                 ; add to column
+            tax                         ; X = column
+            lda     ROW                 ; A = row
+            bra     @cursor             ; update cursor
             
-            bra     @loop               ; keep getting characters
+@newline:   lda     ROW
+            cmp     #24
+            beq     @done               ; row == 24? done
             
-@done:      lda     #$0F
-            and     $01                 ; generate 12-bit VRAM address
-            lsr     $01                 ; 11-bit cursor addr = VRAM address >> 1
-            ror     $00                 ; $0000 = new 11-bit cursor address
+            ldx     #0                  ; column = 0
+            inc     A                   ; row++
+@cursor:    jsr     gotoxy              ; update cursor position
             
-            lda     $01
-            sta     VGA_CURSH
-            lda     $00
-            sta     VGA_CURSL           ; cursor address = $0000
-            
-            rts
+@done:      rts

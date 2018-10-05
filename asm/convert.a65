@@ -203,6 +203,8 @@ u8toh:      pha                         ; save input
 ; Returns:    X = &string<15:8>
 ;             A = &string<7:0>
 ;
+; Destroys: Y, $00, $01
+;
 ; Cycles (jsr->rts): 2067-3188
 
 .CODE

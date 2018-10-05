@@ -36,14 +36,18 @@
 .PC02
 
 .INCLUDE    "ascii.inc"
+.INCLUDE    "conio.inc"
 .INCLUDE    "memory.inc"
-.INCLUDE    "uart.inc"
 
+.IMPORT     clrln
+.IMPORT     clrscr
+.IMPORT     cputs
+.IMPORT     gotoxy
 .IMPORT     htou8
 .IMPORT     htou16
-.IMPORT     uart_getc
-.IMPORT     uart_putc
-.IMPORT     uart_puts
+.IMPORT     keymap
+.IMPORT     keymapsh
+.IMPORT     putch
 .IMPORT     u8toh
 .IMPORT     u16itod
 
@@ -60,15 +64,40 @@
 
 .CODE
 
-monitor:    lda     #'>'                ; command prompt character
-            jsr     uart_putc           ; print command prompt
+monitor:    cursor_on                   ; turn cursor on
+            
+@prompt:    lda     #'>'
+            jsr     putch               ; print command prompt
             
             ldx     #0                  ; X = string index
-@getline:   jsr     uart_getc           ; get character from UART
+@getline:   lda     KBD_STATUS          ; retrieve keyboard STATUS register
+            bit     #%00000001          ; test DATA_RDY
+            beq     @getline            ; DATA_RDY == 0? keep polling
+            
+            lda     KBD_SCANCODE        ; read the scan code
+            tay
+            lda     KBD_STATUS          ; retrieve keyboard STATUS register
+            bit     #%00000110          ; test LSHIFT and RSHIFT
+            bne     @shifted
+            lda     keymap, Y           ; convert to ASCII
+            bra     @isnull
+@shifted:   lda     keymapsh, Y
+@isnull:    beq     @getline            ; ASCII character == 0? ignore non ASCII
             cmp     #ESC
-            beq     @escape             ; escape?
+            beq     @escape             ; escape key? process
+            cmp     #TAB
+            beq     @getline            ; tab key? process
+            cmp     #BS
+            beq     @backspace          ; backspace key? process
+            
+            pha                         ; save the character
+            phx                         ; save string index
+            jsr     putch               ; print character to screen
+            plx                         ; restore string index
+            pla                         ; restore the character
+            
             cmp     #LF
-            beq     @linefeed           ; line feed?
+            beq     @linefeed           ; line feed? process
             
             cpx     #9
             bcs     @getline            ; ignore input if > 9 characters
@@ -77,15 +106,38 @@ monitor:    lda     #'>'                ; command prompt character
             inx                         ; next string position
             bra     @getline            ; keep getting characters
             
-@escape:    ldx     #.HIBYTE(clrln_cmd) ; VT100 command string
-            lda     #.LOBYTE(clrln_cmd)
-            jsr     uart_puts           ; clear the line, reset the cursor
+@escape:    lda     ROW
+            jsr     clrln               ; clear current line
             bra     monitor             ; new prompt
+
+@backspace: lda     COL                 ; A = current column
+            cmp     #1                  ; check if beginning of prompt
+            beq     @getline            ; column == 1? ignore backspace
+            
+            phx                         ; save the string index
+            
+            dec     A                   ; decrement column
+            tax                         ; X = column--
+            lda     ROW                 ; A = current row
+            jsr     gotoxy              ; move cursor to (column--, row)
+            
+            lda     #NUL                ; A = NUL character
+            jsr     putch               ; clear the cursor position
+            
+            ldx     COL                 ; X = current column
+            dex                         ; X = column--
+            lda     ROW                 ; A = current row
+            jsr     gotoxy              ; reset cursor from printed NUL
+            
+            plx                         ; restore string index
+            dex                         ; string index--
+            
+            bra     @getline            ; keep getting characters
 
 @linefeed:  stz     input, X            ; add NUL terminator
 
 @isempty:   cpx     #0
-            beq     monitor             ; empty input string?
+            beq     monitor             ; empty input string? try again
             
             ; validate input string format
             lda     input+1             ; check 2nd character
@@ -102,8 +154,8 @@ monitor:    lda     #'>'                ; command prompt character
             ; parse command
 @noparams:  lda     input
             cmp     #'c'
-            beq     clrscr              ; clear screen?
-            cmp     #'?'
+            beq     cls                 ; clear screen?
+            cmp     #'h'
             beq     help                ; help command?
             cmp     #'r'
             beq     run                 ; run command?
@@ -123,96 +175,58 @@ monitor:    lda     #'>'                ; command prompt character
             
 invalid:    ldx     #.HIBYTE(input)
             lda     #.LOBYTE(input)
-            jsr     uart_puts           ; print the invalid command
+            jsr     cputs               ; print the invalid command
             
             lda     #':'
-            jsr     uart_putc
+            jsr     putch
             lda     #' '
-            jsr     uart_putc
+            jsr     putch
             
             ldx     #.HIBYTE(inv_msg)
             lda     #.LOBYTE(inv_msg)
-            jsr     uart_puts           ; print the invalid message
+            jsr     cputs               ; print the invalid message
             jmp     monitor
             
-            rts
+@idle:      bra     @idle               ; idle
 
 
-;= CLEAR SCREEN ================================================================
-; Clear the screen and reset the cursor with VT100 commands.
-;
-; Parameters: none
-; Returns:    none
+;= CLRSCR ======================================================================
 
-clrscr:     ldx     #.HIBYTE(clrscr_cmd)
-            lda     #.LOBYTE(clrscr_cmd)
-            jsr     uart_puts
+cls:        cursor_off
+            jsr     clrscr
+            cursor_on
             
             jmp     monitor
 
 
-;= DUMP MEMORY =================================================================
-; Dump 16 bytes of memory to the screen
-;
-; Parameters: none
-; Returns:    none
-;
-; Cycles (jsr->rts):
+;= DUMP ========================================================================
 
 dump:       jsr     memdump             ; dump 16 bytes of memory to screen
             jmp     monitor             ; return to the monitor
 
 
-;= HELP MESSAGE ================================================================
-; Print the help message
-;
-; Parameters: none
-; Returns:    none
+;= HELP ========================================================================
 
-.CODE
-
-help:       ldx     #.HIBYTE(help_msg0)
-            lda     #.LOBYTE(help_msg0)
-            jsr     uart_puts
+help:       ldx     #.HIBYTE(help_msg)
+            lda     #.LOBYTE(help_msg)
+            jsr     cputs
             
             jmp     monitor
 
 
-;= RUN PROGRAM =================================================================
-; Run program at $0300
-;
-; Parameters: none
-; Returns:    none
-
-.CODE
+;= RUN =========================================================================
 
 run:        jsr     $0300
             jmp     monitor
 
 
-;= WRITE MEMORY ================================================================
-; Write memory at specified location
-;
-; Parameters: none
-; Returns:    none
-;
-; Cycles (jsr->rts):
-
-.CODE
+;= WRITE =======================================================================
 
 write:      jsr     memwrite
             jmp     monitor
 
 
 ;= ZMODEM ======================================================================
-; Receive file via ZMODEM
-;
-; Parameters: none
-; Returns:    none
-;
-; Cycles (jsr->rts):
-
-.CODE
 
 zmodem:     jmp     monitor
 
@@ -226,12 +240,12 @@ zmodem:     jmp     monitor
 memdump:    ldx     #.HIBYTE(input+2)
             lda     #.LOBYTE(input+2)
             jsr     htou16              ; convert hex string to uint16
-            stx     $03
-            sta     $02                 ; $(02) = start address
+            stx     $07
+            sta     $06                 ; $(06) = start address
             
             ; take a snapshot of the memory
             ldy     #15                 ; Y = offset
-@buffer:    lda     ($02), Y            ; A = load memory
+@buffer:    lda     ($06), Y            ; A = load memory
             sta     buf, Y              ; store in buffer
             dey                         ; offset--
             bpl     @buffer             ; offset >= 0?
@@ -239,31 +253,31 @@ memdump:    ldx     #.HIBYTE(input+2)
             ; print passed memory address
             txa                         ; MSB first
             jsr     u8toh               ; unsigned byte to hex
-            jsr     uart_puts
-            lda     $02                 ; LSB next
+            jsr     cputs
+            lda     $06                 ; LSB next
             jsr     u8toh               ; unsigned byte to hex
-            jsr     uart_puts
+            jsr     cputs
             
             lda     #':'
-            jsr     uart_putc
+            jsr     putch
             lda     #' '
-            jsr     uart_putc
+            jsr     putch
             
             ldy     #0                  ; Y = offset
 @bytes:     lda     buf, Y              ; load buffered memory
             jsr     u8toh               ; convert byte to hex
-            phy                         ; save Y (uart_puts destroys it)
-            jsr     uart_puts           ; print hex
+            phy                         ; save Y (cputs destroys it)
+            jsr     cputs               ; print hex
             ply                         ; restore Y
             lda     #' '
-            jsr     uart_putc           ; print a space
+            jsr     putch               ; print a space
             
             iny                         ; next address
             cpy     #16
             bne     @bytes              ; offset < 16?
             
             lda     #'['                ; start ASCII display
-            jsr     uart_putc
+            jsr     putch
             
             ldy     #0                  ; Y = offset
 @toascii:   lda     buf, Y              ; load buffered memory
@@ -272,21 +286,21 @@ memdump:    ldx     #.HIBYTE(input+2)
             cmp     #$7F                ; DEL
             bcs     @notascii           ; value >= DEL?
             
-            jsr     uart_putc           ; print the ASCII representation
+            jsr     putch               ; print the ASCII representation
             bra     @next
             
 @notascii:  lda     #'.'                ; print a period for unprintables
-            jsr     uart_putc
+            jsr     putch
             
 @next:      iny                         ; offset++
             cpy     #16
             bne     @toascii            ; offset < 16?
             
             lda     #']'
-            jsr     uart_putc           ; end of ASCII display
+            jsr     putch               ; end of ASCII display
             
             lda     #LF
-            jsr     uart_putc           ; line feed
+            jsr     putch               ; line feed
             
             rts
 
@@ -300,32 +314,32 @@ memdump:    ldx     #.HIBYTE(input+2)
 memwrite:   ldx     #.HIBYTE(input+2)
             lda     #.LOBYTE(input+2)
             jsr     htou16              ; convert address hex string to uint16
-            stx     $03
-            sta     $02                 ; ($02) = address
+            stx     $07
+            sta     $06                 ; ($0006) = address
             
             ldx     input+7
             lda     input+8
             jsr     htou8               ; convert value hex string to uint8
-            sta     ($02)
+            sta     ($06)
             pha                         ; save write value
             
-            lda     $03                 ; address MSB
+            lda     $07                 ; address MSB
             jsr     u8toh               ; convert address MSB to hex string
-            jsr     uart_puts           ; print address MSB
-            lda     $02                 ; address LSB
+            jsr     cputs               ; print address MSB
+            lda     $06                 ; address LSB
             jsr     u8toh               ; convert address LSB to hex string
-            jsr     uart_puts           ; print address LSB
+            jsr     cputs               ; print address LSB
             lda     #':'
-            jsr     uart_putc
+            jsr     putch
             lda     #' '
-            jsr     uart_putc
+            jsr     putch
             
             pla                         ; A = write value
             jsr     u8toh               ; convert write value to hex string
-            jsr     uart_puts           ; print write value
+            jsr     cputs               ; print write value
             
             lda     #LF
-            jsr     uart_putc           ; line feed
+            jsr     putch               ; line feed
             
             rts
 
@@ -334,18 +348,14 @@ memwrite:   ldx     #.HIBYTE(input+2)
 
 .RODATA
 
-; VT100 commands
-clrscr_cmd: .BYTE ESC, "[2J", ESC, "[H", 0
-clrln_cmd:  .BYTE CR, ESC, "[2K", 0
-
 inv_msg:    .BYTE "invalid command", LF, 0
 
-help_msg0:  .BYTE "clrscr", TAB, "c", LF
+help_msg:   .BYTE "clrscr", TAB, "c", LF
 help_msg1:  .BYTE "dump", TAB, "d address", LF
-help_msg2:  .BYTE "help", TAB, "?", LF
+help_msg2:  .BYTE "help", TAB, "h", LF
 help_msg3:  .BYTE "run", TAB, "r", LF 
 help_msg4:  .BYTE "write", TAB, "w address byte", LF
-help_msg5:  .BYTE "zmodem", TAB, "z", LF, NUL
+help_msg5:  .BYTE "ymodem", TAB, "y", LF, NUL
 
 
 ;= UNINITIALIZED DATA ==========================================================

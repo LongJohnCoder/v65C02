@@ -29,7 +29,7 @@
 ;    -------------------------------------------------
 ;    0.0         | 07/26/2018    | Initial development
 ;===============================================================================
-; Purpose : Main program for the 65C02 BIOS.
+; Purpose : Main program for the v65C02 BIOS.
 ;===============================================================================
 
 
@@ -39,17 +39,21 @@
 .INCLUDE    "memory.inc"
 .INCLUDE    "uart.inc"
 
+.IMPORT     clrscr
+.IMPORT     cputs
 .IMPORT     gotoxy
 .IMPORT     keymap
 .IMPORT     monitor
-.IMPORT     puts
-.IMPORT     uart_getc
 .IMPORT     u16tod
-.IMPORT     vga_init
 
 .EXPORT     start
 
+
+;= CONSTANTS ===================================================================
+
 .DEFINE     VERSION "0.0"
+
+EN = %00000001
 
 
 ;= BIOS ENTRY POINT ============================================================
@@ -58,23 +62,26 @@
 
 .CODE
 
+            ; zero page check
 start:      lda     #$AA                ; verify RAM by checking zero page
             sta     $FF                 ; store $AA to $00FF
             lda     $FF                 ; read $00FF
             cmp     #$AA                ; compare with $AA
             bne     @no_ram             ; $00FF != $AA?
             
+            ; stack check
             pha                         ; now check the stack by pushing $AA
             pla                         ; pull the pushed value
             cmp     #$AA                ; compare with $AA
             beq     main                ; pushed/pulled == $AA?
             
+            ; no RAM installed
 @no_ram:    lda     #$C0                ; display error code on SSEG display
             sta     SSEG_BYTE3
             lda     #$DE
             sta     SSEG_BYTE2
             stz     SSEG_BYTE0
-            lda     #$F3
+            lda     #%11110011          ; Bytes 0, 2, and 3 turned on
             sta     SSEG_DIGITS         ; display "C0DE 00" on SSEG
             
 @halt:      bra     @halt               ; halt, we can't do anything without RAM
@@ -86,8 +93,13 @@ start:      lda     #$AA                ; verify RAM by checking zero page
 
 main:       cli                         ; enable interrupts
             
-            jsr     vga_init            ; initialize the VGA
+            ; VGA initialization
+            stz     VGA_STATUS          ; disable VGA and cursor
+            jsr     clrscr              ; clear the screen
+            lda     #EN                 ; VGA enabled, cursor disabled
+            sta     VGA_STATUS          ; write new status register
             
+            ; UART initialization
             lda     #.HIBYTE(B115200)
             sta     UART_BRGH
             lda     #.LOBYTE(B115200)
@@ -95,7 +107,7 @@ main:       cli                         ; enable interrupts
             
             ldx     #.HIBYTE(bios_ver)
             lda     #.LOBYTE(bios_ver)
-            jsr     puts                ; BIOS header
+            jsr     cputs                ; BIOS header
             
             ldx     #0
             lda     #1
@@ -103,7 +115,7 @@ main:       cli                         ; enable interrupts
             
             ldx     #.HIBYTE(copyright)
             lda     #.LOBYTE(copyright)
-            jsr     puts                ; copyright
+            jsr     cputs                ; copyright
             
             ldx     #0
             lda     #3
@@ -111,17 +123,33 @@ main:       cli                         ; enable interrupts
             
             ldx     #.HIBYTE(ram)
             lda     #.LOBYTE(ram)
-            jsr     puts                ; RAM message
+            jsr     cputs                ; RAM message
             
-            jsr     ram_count           ; returns number of RAM pages
-            tax                         ; convert pages to bytes
-            lda     #$00
+            ; compute total RAM installed
+            lda     #$02                ; start at $02FF
+            sta     $01                 ; current RAM page
+            lda     #$FF                ; RAM offset
+            sta     $00                 ; ($0000) = current page to test
+            
+@loop:      lda     #$AA
+            sta     ($00)               ; store $AA at ($0000)
+            lda     ($00)               ; read ($0000)
+            cmp     #$AA                ; compare with $AA
+            bne     @total              ; ($0000) != $AA? total
+            
+            inc     $01                 ; increment the page to be tested
+            lda     $01                 ; load the page count
+            cmp     #.HIBYTE(VRAM)      ; VRAM starts at RAM end
+            bne     @loop               ; page count != VRAM start? loop
+            
+@total:     ldx     $01                 ; convert pages to bytes
+            lda     #$00                ; X,A = total bytes
             jsr     u16tod              ; convert RAM total to decimal string
-            jsr     puts                ; print RAM total
+            jsr     cputs               ; print RAM total
             
             ldx     #.HIBYTE(bytes)
             lda     #.LOBYTE(bytes)
-            jsr     puts                ; bytes string
+            jsr     cputs               ; bytes string
             
             ldx     #0
             lda     #4
@@ -129,7 +157,7 @@ main:       cli                         ; enable interrupts
             
             ldx     #.HIBYTE(uart)
             lda     #.LOBYTE(uart)
-            jsr     puts                ; UART string
+            jsr     cputs               ; UART setting string
             
             ldx     #0
             lda     #6
@@ -137,57 +165,13 @@ main:       cli                         ; enable interrupts
             
             ldx     #.HIBYTE(ready)
             lda     #.LOBYTE(ready)
-            jsr     puts                ; print ready message
+            jsr     cputs               ; print ready message
             
-            ;jsr     monitor            ; ROM monitor program
+            ldx     #0
+            lda     #7
+            jsr     gotoxy              ; move cursor to (0,7)
             
-            lda     #$33
-            sta     SSEG_DIGITS         ; turn on digit 0 and 1
-            
-@keyb:      lda     KBD_STATUS
-            bit     $01                 ; test DATA_RDY
-            beq     @keyb               ; keep polling
-            
-            lda     KBD_SCANCODE        
-            sta     SSEG_BYTE0          ; send the scan code to the SSEG
-            
-            tax
-            lda     keymap, X           ; retrieve ASCII value
-            sta     SSEG_BYTE2          ; send ASCII code to SSEG
-            bra     @keyb
-            
-@idle:      bra     @idle               ; idle
-
-
-;= RAM COUNT ===================================================================
-; Counts the total pages of RAM available. Assumes zero page and stack confirmed
-;
-; Parameters: none
-; Returns:    A = total RAM pages
-;
-; Cycles (jsr->rts): 3426 for 32KB
-
-.CODE
-
-ram_count:  lda     #$02                ; start at $02FF
-            sta     $01
-            lda     #$FF
-            sta     $00                 ; ($00) = current page to test
-            
-@loop:      lda     #$AA
-            sta     ($00)               ; store $AA at ($00)
-            lda     ($00)               ; read ($00)
-            cmp     #$AA                ; compare with $AA
-            bne     @total              ; ($00) != $AA?
-            
-            inc     $01                 ; increment the page to be tested
-            lda     $01                 ; load the page count
-            cmp     #.HIBYTE(VRAM)      ; VRAM starts at RAM end
-            bne     @loop               ; page count != VRAM start?
-            
-@total:     lda     $01                 ; A = page count
-            
-            rts
+            jmp     monitor             ; ROM monitor program
 
 
 ;= READ ONLY DATA ==============================================================
